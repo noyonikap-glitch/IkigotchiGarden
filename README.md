@@ -39,7 +39,7 @@ npx expo start
 
 Scan the QR code with the Expo Go app on your mobile device to launch the app.
 
-### ⚠️ Known Limitations
+## ⚠️ Known Limitations
 
 🔕 Expo Go no longer supports remote push notifications as of SDK 53
 
@@ -51,7 +51,7 @@ Scan the QR code with the Expo Go app on your mobile device to launch the app.
 npx expo run:android
 ```
 
-### 🧩 Tech Stack
+## 🧩 Tech Stack
 
 React Native
 
@@ -66,7 +66,7 @@ Animated API for bounce effects
 FlatList for responsive grids
 
 
-### 💡 Ideas for Future Features
+## 💡 Ideas for Future Features
 
 ☁️ Cloud sync + user accounts
 
@@ -76,7 +76,7 @@ FlatList for responsive grids
 
 👯 Share plant collections with friends
 
-### 📄 License
+## 📄 License
 MIT License — use, remix, modify, and grow your own garden 🌱
 
 Made with 💚 by @noyonikap-glitch

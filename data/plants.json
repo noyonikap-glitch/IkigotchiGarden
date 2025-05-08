@@ -1,0 +1,8 @@
+[
+    { "name": "snake", "wateringInterval": 7 },
+    { "name": "fiddle", "wateringInterval": 5 },
+    { "name":"monstera", "wateringInterval": 4 },
+    { "name": "pothos", "wateringInterval": 6 },
+    { "name": "peace lily", "wateringInterval": 3 }
+  ]
+  

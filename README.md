@@ -26,4 +26,60 @@ A minimalist, soothing plant care companion to help houseplants thrive — track
 ```bash
 git clone https://github.com/noyonikap-glitch/IkigotchiGarden.git
 cd IkigotchiGarden
+```
+### 2. Install dependencies
+```bash
+npm install
+```
+
+###3. Start the dev server
+```bash
+npx expo start
+```
+
+Scan the QR code with the Expo Go app on your mobile device to launch the app.
+
+### ⚠️ Known Limitations
+
+🔕 Expo Go no longer supports remote push notifications as of SDK 53
+
+✅ All local notifications (watering reminders) still work as intended
+
+🔧 If notifications don't work as expected, try:
+
+```bash
+npx expo run:android
+```
+
+### 🧩 Tech Stack
+
+React Native
+
+Expo SDK 53
+
+expo-notifications for scheduled watering reminders
+
+AsyncStorage for local plant data
+
+Animated API for bounce effects
+
+FlatList for responsive grids
+
+
+### 💡 Ideas for Future Features
+
+☁️ Cloud sync + user accounts
+
+🔄 Recurring care tasks (pruning, fertilizing)
+
+🌤 Weather-integrated watering logic
+
+👯 Share plant collections with friends
+
+### 📄 License
+MIT License — use, remix, modify, and grow your own garden 🌱
+
+Made with 💚 by @noyonikap-glitch
+
+
 

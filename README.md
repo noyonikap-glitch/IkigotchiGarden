@@ -2,7 +2,7 @@
 
 ![Expo](https://img.shields.io/badge/Expo-SDK%2053-blueviolet)
 ![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-green)
-![Status](https://img.shields.io/badge/Status-Prototype-blue)
+![Status](https://img.shields.io/badge/Status-MVP%20Complete-brightgreen)
 
 A minimalist, soothing plant care companion to help houseplants thrive — track watering needs, get reminders, and feel your plants bounce with joy when you care for them. Built with React Native and Expo.
 

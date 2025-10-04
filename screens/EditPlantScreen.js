@@ -7,7 +7,7 @@ import getPlantImage from '../utils/getPlantImage';
 import { Image } from 'react-native';
 import { Animated } from 'react-native';
 import { useRef } from 'react';
-import { checkPlantSpecies, checkPlantHealth } from '../utils/geminiService';
+import { checkPlantSpecies, checkPlantHealth, generatePixelArtImage } from '../utils/geminiService';
 
 
 
@@ -18,6 +18,7 @@ export default function EditPlantScreen({ route, navigation }) {
   const { plant, plants, setPlants } = route.params;
   const [name, setName] = useState(plant.name);
   const [loading, setLoading] = useState(false);
+  const [customImageUri, setCustomImageUri] = useState(plant.customImage || null);
 
   const handleRename = () => {
     const updated = plants.map(p => 
@@ -180,6 +181,28 @@ export default function EditPlantScreen({ route, navigation }) {
     }
   };
 
+  const handleGeneratePixelArt = async () => {
+    try {
+      setLoading(true);
+
+      // Generate pixel art using the plant's species/type
+      const imageUri = await generatePixelArtImage(plant.type);
+
+      // Update plant with custom image
+      const updated = plants.map(p =>
+        p.id === plant.id ? { ...p, customImage: imageUri } : p
+      );
+      setPlants(updated);
+      setCustomImageUri(imageUri);
+
+      setLoading(false);
+      Alert.alert('Success', 'Pixel art image generated successfully!');
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Error', error.message || 'Failed to generate pixel art image');
+    }
+  };
+
 
 
   return (
@@ -187,7 +210,10 @@ export default function EditPlantScreen({ route, navigation }) {
       <Text style={styles.header}>{plant.name}</Text>
       
       <Animated.View style={{ transform: [{ translateY: bounceAnim }] }}>
-      <Image source={getPlantImage(plant.type)} style={styles.plantImage} />
+      <Image
+        source={customImageUri ? { uri: customImageUri } : getPlantImage(plant.type)}
+        style={styles.plantImage}
+      />
       </Animated.View>
 
 
@@ -220,6 +246,14 @@ export default function EditPlantScreen({ route, navigation }) {
 
 <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
   <Text style={styles.buttonText}>Delete Plant</Text>
+</TouchableOpacity>
+
+<TouchableOpacity
+  style={[styles.pixelArtButton, loading && styles.disabledButton]}
+  onPress={handleGeneratePixelArt}
+  disabled={loading}
+>
+  <Text style={styles.buttonText}>Generate Pixel Art 🎨</Text>
 </TouchableOpacity>
 
 <View style={styles.aiButtonsContainer}>
@@ -304,6 +338,14 @@ const styles = StyleSheet.create({
   
   deleteButton: {
     backgroundColor: '#d9534f',
+    padding: 15,
+    borderRadius: 50,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+
+  pixelArtButton: {
+    backgroundColor: '#9c27b0',
     padding: 15,
     borderRadius: 50,
     alignItems: 'center',

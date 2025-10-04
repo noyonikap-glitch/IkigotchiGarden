@@ -1,7 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import * as FileSystem from 'expo-file-system';
+import { GEMINI_API_KEY } from '@env';
 
-// You'll need to set your Gemini API key here or in an environment variable
-const API_KEY = 'AIzaSyClvyttAktAyjpsQOje3Ev7Pt7eBoKxBZw';
+const API_KEY = GEMINI_API_KEY;
 
 const genAI = new GoogleGenerativeAI(API_KEY);
 
@@ -81,5 +82,56 @@ export async function checkPlantHealth(imageUri) {
   } catch (error) {
     console.error('Error checking plant health:', error);
     throw new Error('Failed to assess plant health. Please try again.');
+  }
+}
+
+/**
+ * Generate pixel art image using Gemini Nano-Banana image generator
+ * @param {string} plantSpecies - Species of the plant
+ * @returns {Promise<string>} - Local file URI of the generated image
+ */
+export async function generatePixelArtImage(plantSpecies) {
+  try {
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash-image'
+    });
+
+    // Placeholder prompt for pixel art generation
+    const prompt = `Create a cute pixel art style image of a ${plantSpecies} plant in a pot. Use vibrant colors and a simple, charming 16-bit aesthetic.`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+
+    // Extract image data from response
+    // Note: The actual response format may vary depending on the API
+    const imageData = {};
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        imageData.data = part.inlineData.data;
+        break;
+      }
+    }
+
+
+    if (!imageData || !imageData.data) {
+      throw new Error('No image data received from API');
+    }
+
+    // Create a unique filename
+    const timestamp = Date.now();
+    const filename = `plant_${timestamp}.png`;
+    const fileUri = `${FileSystem.documentDirectory}${filename}`;
+
+    // Save the base64 image to file system
+    await FileSystem.writeAsStringAsync(
+      fileUri,
+      imageData.data,
+      { encoding: FileSystem.EncodingType.Base64 }
+    );
+
+    return fileUri;
+  } catch (error) {
+    console.error('Error generating pixel art:', error);
+    throw new Error('Failed to generate pixel art image. Please try again.');
   }
 }

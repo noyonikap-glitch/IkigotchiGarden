@@ -1,11 +1,13 @@
 // screens/editPlantScreen.js
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import * as ImagePicker from 'expo-image-picker';
 import getPlantImage from '../utils/getPlantImage';
 import { Image } from 'react-native';
 import { Animated } from 'react-native';
 import { useRef } from 'react';
+import { checkPlantSpecies, checkPlantHealth } from '../utils/geminiService';
 
 
 
@@ -15,6 +17,7 @@ export default function EditPlantScreen({ route, navigation }) {
   const bounceAnim = useRef(new Animated.Value(1)).current;
   const { plant, plants, setPlants } = route.params;
   const [name, setName] = useState(plant.name);
+  const [loading, setLoading] = useState(false);
 
   const handleRename = () => {
     const updated = plants.map(p => 
@@ -90,10 +93,95 @@ export default function EditPlantScreen({ route, navigation }) {
     setPlants(updated);
     //navigation.goBack();
   };
-  
-  
-  
-  
+
+  const handleCheckSpecies = async () => {
+    try {
+      // Request camera roll permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      // Pick an image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setLoading(true);
+        const imageUri = result.assets[0].uri;
+
+        const species = await checkPlantSpecies(imageUri);
+
+        setLoading(false);
+
+        // Ask user if they want to update the plant type
+        Alert.alert(
+          'Species Identified',
+          species,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Update Plant Type',
+              onPress: () => {
+                const updated = plants.map(p =>
+                  p.id === plant.id ? { ...p, type: species.split('\n')[0].trim() } : p
+                );
+                setPlants(updated);
+                Alert.alert('Success', 'Plant type updated!');
+              }
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Error', error.message || 'Failed to check species');
+    }
+  };
+
+  const handleCheckHealth = async () => {
+    try {
+      // Request camera roll permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      // Pick an image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setLoading(true);
+        const imageUri = result.assets[0].uri;
+
+        const healthReport = await checkPlantHealth(imageUri);
+
+        setLoading(false);
+
+        // Display health report
+        Alert.alert('Plant Health Report', healthReport, [{ text: 'OK' }]);
+      }
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Error', error.message || 'Failed to check plant health');
+    }
+  };
+
+
+
   return (
     <View style={styles.container}>
       <Text style={styles.header}>{plant.name}</Text>
@@ -133,6 +221,31 @@ export default function EditPlantScreen({ route, navigation }) {
 <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
   <Text style={styles.buttonText}>Delete Plant</Text>
 </TouchableOpacity>
+
+<View style={styles.aiButtonsContainer}>
+  <TouchableOpacity
+    style={[styles.aiButton, loading && styles.disabledButton]}
+    onPress={handleCheckSpecies}
+    disabled={loading}
+  >
+    <Text style={styles.buttonText}>Check species (AI)</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity
+    style={[styles.aiButton, loading && styles.disabledButton]}
+    onPress={handleCheckHealth}
+    disabled={loading}
+  >
+    <Text style={styles.buttonText}>Check plant health (AI)</Text>
+  </TouchableOpacity>
+</View>
+
+{loading && (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color="#4285f4" />
+    <Text style={styles.loadingText}>Analyzing image...</Text>
+  </View>
+)}
 
     </View>
   );
@@ -196,7 +309,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
   },
-  
+
+  aiButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    gap: 10,
+  },
+
+  aiButton: {
+    flex: 1,
+    backgroundColor: '#4285f4',
+    padding: 15,
+    borderRadius: 50,
+    alignItems: 'center',
+  },
+
+  disabledButton: {
+    backgroundColor: '#ccc',
+    opacity: 0.6,
+  },
+
+  loadingContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#4285f4',
+    fontWeight: '600',
+  },
+
   buttonText: {
     color: '#fff',
     fontSize: 16,

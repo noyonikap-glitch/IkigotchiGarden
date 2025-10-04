@@ -9,7 +9,7 @@ export async function savePlants(plants) {
     await AsyncStorage.setItem(STORAGE_KEY, json);
     // console.log('[Storage] Plants saved successfully');
   } catch (e) {
-    // console.error('[Storage] Failed to save plants:', e);
+    console.error('[Storage] Failed to save plants:', e);
   }
 }
 
@@ -21,7 +21,7 @@ export async function loadPlants() {
     // console.log('[Storage] Loaded plants:', plants.length);
     return plants;
   } catch (e) {
-    // console.error('[Storage] Failed to load plants:', e);
+    console.error('[Storage] Failed to load plants:', e);
     return [];
   }
 }
@@ -42,7 +42,7 @@ export async function loadCustomPlants() {
     const json = await AsyncStorage.getItem(CUSTOM_KEY);
     return json != null ? JSON.parse(json) : [];
   } catch (e) {
-    // console.error('Failed to load custom plants:', e);
+    console.error('Failed to load custom plants:', e);
     return [];
   }
 }

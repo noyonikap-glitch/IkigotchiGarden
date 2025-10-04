@@ -15,8 +15,13 @@ export default function App() {
   // Load stored plants and custom plants on startup
   useEffect(() => {
     (async () => {
+      // console.log('[App] Loading initial plants from storage');
       const storedPlants = await loadPlants();
       const storedCustoms = await loadCustomPlants();
+      // console.log('[App] Loaded plants:', storedPlants.length);
+    //   storedPlants.forEach((plant, index) => {
+    //     console.log(`[App] Plant ${index + 1}:`, plant.name, 'Custom Image:', plant.customImage);
+    //   });
       setPlants(storedPlants);
       setCustomPlants(storedCustoms);
     })();
@@ -24,6 +29,7 @@ export default function App() {
 
   // Save plant list on change
   useEffect(() => {
+    // console.log('[App] Plants state changed, saving:', plants.length);
     savePlants(plants);
   }, [plants]);
 

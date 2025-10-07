@@ -1,6 +1,6 @@
 // screens/HomeScreen.js
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,28 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Image } from 'react-native';
 import getPlantImage from '../utils/getPlantImage';
+import { loadPlants } from '../utils/storage';
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function HomeScreen({ navigation, plants, setPlants }) {
+  useFocusEffect(
+    React.useCallback(() => {
+      // console.log('[HomeScreen] Screen focused, reloading plants from storage');
+      (async () => {
+        const freshPlants = await loadPlants();
+        // console.log('[HomeScreen] Loaded fresh plants:', freshPlants.length);
+        freshPlants.forEach((plant, index) => {
+          // console.log(`[HomeScreen] Plant ${index + 1}:`, plant.name, 'Custom Image:', plant.customImage);
+        });
+        setPlants(freshPlants);
+      })();
+    }, [])
+  );
+
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Ikigotchi</Text>
@@ -30,16 +45,15 @@ export default function HomeScreen({ navigation, plants, setPlants }) {
           <TouchableOpacity
             onPress={() =>
               navigation.navigate('EditPlant', {
-                plant: item,
-                plants,
-                setPlants,
+                plantId: item.id,
               })
             }
           >
             <View style={styles.plantCard}>
               <Text style={styles.plantName}>{item.name}</Text>
               <Image
-                source={getPlantImage(item.type)}
+                key={item.customImage || item.id}
+                source={item.customImage ? { uri: item.customImage } : getPlantImage(item.type)}
                 style={styles.plantImage}
               />
               <Text style={styles.plantType}>{item.type}</Text>

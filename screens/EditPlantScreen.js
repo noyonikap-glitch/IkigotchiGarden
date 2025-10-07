@@ -1,26 +1,54 @@
 // screens/editPlantScreen.js
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
+import * as ImagePicker from 'expo-image-picker';
 import getPlantImage from '../utils/getPlantImage';
 import { Image } from 'react-native';
 import { Animated } from 'react-native';
-import { useRef } from 'react';
-
-
-
-
+import { useRef, useCallback } from 'react';
+import { checkPlantSpecies, checkPlantHealth, generatePixelArtImage } from '../utils/geminiService';
+import { loadPlants, savePlants } from '../utils/storage';
 
 export default function EditPlantScreen({ route, navigation }) {
   const bounceAnim = useRef(new Animated.Value(1)).current;
-  const { plant, plants, setPlants } = route.params;
-  const [name, setName] = useState(plant.name);
+  const { plantId } = route.params;
 
-  const handleRename = () => {
-    const updated = plants.map(p => 
+  const [plant, setPlant] = useState(null);
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [customImageUri, setCustomImageUri] = useState(null);
+
+  // Load plant data when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      loadPlantData();
+    }, [plantId])
+  );
+
+  const loadPlantData = async () => {
+    // console.log('[EditPlant] Loading plant data for ID:', plantId);
+    const plants = await loadPlants();
+    // console.log('[EditPlant] Loaded plants from storage:', plants.length);
+    const currentPlant = plants.find(p => p.id === plantId);
+    if (currentPlant) {
+      // console.log('[EditPlant] Found plant:', currentPlant.name);
+      // console.log('[EditPlant] Custom image URI:', currentPlant.customImage);
+      setPlant(currentPlant);
+      setName(currentPlant.name);
+      setCustomImageUri(currentPlant.customImage || null);
+    } else {
+      // console.log('[EditPlant] Plant not found with ID:', plantId);
+    }
+  };
+
+  const handleRename = async () => {
+    const plants = await loadPlants();
+    const updated = plants.map(p =>
       p.id === plant.id ? { ...p, name } : p
     );
-    setPlants(updated);
+    await savePlants(updated);
     navigation.goBack();
   };
 
@@ -30,9 +58,13 @@ export default function EditPlantScreen({ route, navigation }) {
       `Are you sure you want to delete "${plant.name}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => {
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const plants = await loadPlants();
             const updated = plants.filter(p => p.id !== plant.id);
-            setPlants(updated);
+            await savePlants(updated);
             navigation.goBack();
           }
         }
@@ -44,16 +76,16 @@ export default function EditPlantScreen({ route, navigation }) {
   const handleMarkWatered = async () => {
     const now = new Date();
     const intervalDays = plant.wateringInterval || 7;
-  
+
     // 1. Cancel previous notification (if exists)
     if (plant.notifId) {
       await Notifications.cancelScheduledNotificationAsync(plant.notifId);
     }
-  
+
     // 2. Schedule new one
     const nextWateringDate = new Date(now);
     nextWateringDate.setDate(now.getDate() + intervalDays);
-  
+
     const notifId = await Notifications.scheduleNotificationAsync({
       content: {
         title: `Water ${plant.name} 🌿`,
@@ -61,8 +93,9 @@ export default function EditPlantScreen({ route, navigation }) {
       },
       trigger: nextWateringDate,
     });
-  
+
     // 3. Update plant log + notifId
+    const plants = await loadPlants();
     const updated = plants.map(p => {
       if (p.id === plant.id) {
         const log = p.wateringLog ? [...p.wateringLog, now.toISOString()] : [now.toISOString()];
@@ -70,6 +103,9 @@ export default function EditPlantScreen({ route, navigation }) {
       }
       return p;
     });
+
+    await savePlants(updated);
+    await loadPlantData(); // Reload to show updated data
 
     //4. Animation sequence
     Animated.sequence([
@@ -85,21 +121,151 @@ export default function EditPlantScreen({ route, navigation }) {
         useNativeDriver: true,
       })
     ]).start();
-    
-  
-    setPlants(updated);
-    //navigation.goBack();
   };
-  
-  
-  
-  
+
+  const handleCheckSpecies = async () => {
+    try {
+      // Request camera roll permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      // Pick an image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setLoading(true);
+        const imageUri = result.assets[0].uri;
+
+        const species = await checkPlantSpecies(imageUri);
+
+        setLoading(false);
+
+        // Ask user if they want to update the plant type
+        Alert.alert(
+          'Species Identified',
+          species,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Update Plant Type',
+              onPress: async () => {
+                const plants = await loadPlants();
+                const updated = plants.map(p =>
+                  p.id === plant.id ? { ...p, type: species.split('\n')[0].trim() } : p
+                );
+                await savePlants(updated);
+                await loadPlantData();
+                Alert.alert('Success', 'Plant type updated!');
+              }
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Error', error.message || 'Failed to check species');
+    }
+  };
+
+  const handleCheckHealth = async () => {
+    try {
+      // Request camera roll permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      // Pick an image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setLoading(true);
+        const imageUri = result.assets[0].uri;
+
+        const healthReport = await checkPlantHealth(imageUri);
+
+        setLoading(false);
+
+        // Display health report
+        Alert.alert('Plant Health Report', healthReport, [{ text: 'OK' }]);
+      }
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Error', error.message || 'Failed to check plant health');
+    }
+  };
+
+  const handleGeneratePixelArt = async () => {
+    try {
+      setLoading(true);
+      // console.log('[EditPlant] Starting pixel art generation for:', plant.type);
+
+      // Generate pixel art using the plant's species/type
+      const imageUri = await generatePixelArtImage(plant.type);
+      // console.log('[EditPlant] Generated image URI:', imageUri);
+
+      // Update plant with custom image
+      const plants = await loadPlants();
+      // console.log('[EditPlant] Loaded plants before update:', plants.length);
+      const updated = plants.map(p =>
+        p.id === plant.id ? { ...p, customImage: imageUri } : p
+      );
+      // console.log('[EditPlant] Saving updated plants to storage');
+      await savePlants(updated);
+      // console.log('[EditPlant] Plants saved successfully');
+
+      // Verify save
+      const verifyPlants = await loadPlants();
+      const verifyPlant = verifyPlants.find(p => p.id === plant.id);
+      // console.log('[EditPlant] Verification - Plant custom image:', verifyPlant?.customImage);
+
+      setCustomImageUri(imageUri);
+
+      setLoading(false);
+      Alert.alert('Success', 'Pixel art image generated successfully!');
+    } catch (error) {
+      setLoading(false);
+      // console.error('[EditPlant] Error generating pixel art:', error);
+      Alert.alert('Error', error.message || 'Failed to generate pixel art image');
+    }
+  };
+
+
+
+  if (!plant) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#34a853" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.header}>{plant.name}</Text>
-      
+
       <Animated.View style={{ transform: [{ translateY: bounceAnim }] }}>
-      <Image source={getPlantImage(plant.type)} style={styles.plantImage} />
+      <Image
+        key={customImageUri || plant.id}
+        source={customImageUri ? { uri: customImageUri } : getPlantImage(plant.type)}
+        style={styles.plantImage}
+      />
       </Animated.View>
 
 
@@ -133,6 +299,39 @@ export default function EditPlantScreen({ route, navigation }) {
 <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
   <Text style={styles.buttonText}>Delete Plant</Text>
 </TouchableOpacity>
+
+<TouchableOpacity
+  style={[styles.pixelArtButton, loading && styles.disabledButton]}
+  onPress={handleGeneratePixelArt}
+  disabled={loading}
+>
+  <Text style={styles.buttonText}>Generate Pixel Art 🎨</Text>
+</TouchableOpacity>
+
+<View style={styles.aiButtonsContainer}>
+  <TouchableOpacity
+    style={[styles.aiButton, loading && styles.disabledButton]}
+    onPress={handleCheckSpecies}
+    disabled={loading}
+  >
+    <Text style={styles.buttonText}>Check species (AI)</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity
+    style={[styles.aiButton, loading && styles.disabledButton]}
+    onPress={handleCheckHealth}
+    disabled={loading}
+  >
+    <Text style={styles.buttonText}>Check plant health (AI)</Text>
+  </TouchableOpacity>
+</View>
+
+{loading && (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color="#4285f4" />
+    <Text style={styles.loadingText}>Analyzing image...</Text>
+  </View>
+)}
 
     </View>
   );
@@ -196,7 +395,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
   },
-  
+
+  pixelArtButton: {
+    backgroundColor: '#9c27b0',
+    padding: 15,
+    borderRadius: 50,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+
+  aiButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    gap: 10,
+  },
+
+  aiButton: {
+    flex: 1,
+    backgroundColor: '#4285f4',
+    padding: 15,
+    borderRadius: 50,
+    alignItems: 'center',
+  },
+
+  disabledButton: {
+    backgroundColor: '#ccc',
+    opacity: 0.6,
+  },
+
+  loadingContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#4285f4',
+    fontWeight: '600',
+  },
+
   buttonText: {
     color: '#fff',
     fontSize: 16,

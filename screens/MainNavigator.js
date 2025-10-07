@@ -24,11 +24,7 @@ export default function MainNavigator({ plants, setPlants, customPlants, setCust
           />
         )}
       </Stack.Screen>
-      <Stack.Screen name="EditPlant">
-        {(props) => (
-          <EditPlantScreen {...props} plants={plants} setPlants={setPlants} />
-        )}
-      </Stack.Screen>
+      <Stack.Screen name="EditPlant" component={EditPlantScreen} />
     </Stack.Navigator>
   );
 }

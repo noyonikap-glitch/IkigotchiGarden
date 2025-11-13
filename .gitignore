@@ -131,3 +131,4 @@ dmypy.json
 # FastAPI specific
 *.log
 .DS_Store
+scraper/api-token.env

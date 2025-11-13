@@ -41,7 +41,9 @@ export async function checkPlantSpecies(imageUri) {
       },
     };
 
-    const prompt = "What species is this plant? Please provide only the common name and scientific name if possible, being as specific as you can.";
+    const prompt = "What species is this plant? Please provide only the common name and scientific name, \
+                    being as specific as you can. Provide the common name first, followed by the scientific \
+                    name in parentheses.";
 
     const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
@@ -72,7 +74,9 @@ export async function checkPlantHealth(imageUri) {
       },
     };
 
-    const prompt = "Is this plant healthy? Please analyze the plant's condition and provide: 1) Overall health status, 2) Any visible issues or diseases, 3) Recommendations for care if needed.";
+    const prompt = "Is this plant healthy? Please analyze the plant's condition and provide a short summary \
+                    of: 1) Overall health status, 2) Any visible issues or diseases, 3) Recommendations \
+                    for care if needed. Note that the message will displayed as ASCII text.";
 
     const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
@@ -86,20 +90,30 @@ export async function checkPlantHealth(imageUri) {
 }
 
 /**
- * Generate pixel art image using Gemini Nano-Banana image generator
- * @param {string} plantSpecies - Species of the plant
+ * Generate pixel art image using Gemini image generator
+ * @param {string} imageUri - URI of the plant image to use as reference
  * @returns {Promise<string>} - Local file URI of the generated image
  */
-export async function generatePixelArtImage(plantSpecies) {
+export async function generatePixelArtImage(imageUri) {
   try {
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash-image'
     });
 
-    // Placeholder prompt for pixel art generation
-    const prompt = `Create a cute pixel art style image of a ${plantSpecies} plant in a pot. Use vibrant colors and a simple, charming 16-bit aesthetic.`;
+    const base64Image = await uriToBase64(imageUri);
 
-    const result = await model.generateContent(prompt);
+    const imagePart = {
+      inlineData: {
+        data: base64Image,
+        mimeType: 'image/jpeg',
+      },
+    };
+
+    // Prompt for pixel art generation
+    const prompt = `Create a pixel art style image of this plant in a pot, using the image as reference.
+                    Use vibrant colors and a simple, charming 16-bit aesthetic.`;
+
+    const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
 
     // Extract image data from response
@@ -111,7 +125,6 @@ export async function generatePixelArtImage(plantSpecies) {
         break;
       }
     }
-
 
     if (!imageData || !imageData.data) {
       throw new Error('No image data received from API');

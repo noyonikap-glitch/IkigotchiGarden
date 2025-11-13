@@ -213,32 +213,51 @@ export default function EditPlantScreen({ route, navigation }) {
 
   const handleGeneratePixelArt = async () => {
     try {
-      setLoading(true);
-      // console.log('[EditPlant] Starting pixel art generation for:', plant.type);
+      // Request camera roll permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      // Generate pixel art using the plant's species/type
-      const imageUri = await generatePixelArtImage(plant.type);
-      // console.log('[EditPlant] Generated image URI:', imageUri);
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
 
-      // Update plant with custom image
-      const plants = await loadPlants();
-      // console.log('[EditPlant] Loaded plants before update:', plants.length);
-      const updated = plants.map(p =>
-        p.id === plant.id ? { ...p, customImage: imageUri } : p
-      );
-      // console.log('[EditPlant] Saving updated plants to storage');
-      await savePlants(updated);
-      // console.log('[EditPlant] Plants saved successfully');
+      // Pick an image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-      // Verify save
-      const verifyPlants = await loadPlants();
-      const verifyPlant = verifyPlants.find(p => p.id === plant.id);
-      // console.log('[EditPlant] Verification - Plant custom image:', verifyPlant?.customImage);
+      if (!result.canceled) {
+        setLoading(true);
+        const sourceImageUri = result.assets[0].uri;
+        // console.log('[EditPlant] Starting pixel art generation with image:', sourceImageUri);
 
-      setCustomImageUri(imageUri);
+        // Generate pixel art using the selected image
+        const generatedImageUri = await generatePixelArtImage(sourceImageUri);
+        // console.log('[EditPlant] Generated image URI:', generatedImageUri);
 
-      setLoading(false);
-      Alert.alert('Success', 'Pixel art image generated successfully!');
+        // Update plant with custom image
+        const plants = await loadPlants();
+        // console.log('[EditPlant] Loaded plants before update:', plants.length);
+        const updated = plants.map(p =>
+          p.id === plant.id ? { ...p, customImage: generatedImageUri } : p
+        );
+        // console.log('[EditPlant] Saving updated plants to storage');
+        await savePlants(updated);
+        // console.log('[EditPlant] Plants saved successfully');
+
+        // Verify save
+        const verifyPlants = await loadPlants();
+        const verifyPlant = verifyPlants.find(p => p.id === plant.id);
+        // console.log('[EditPlant] Verification - Plant custom image:', verifyPlant?.customImage);
+
+        setCustomImageUri(generatedImageUri);
+
+        setLoading(false);
+        Alert.alert('Success', 'Pixel art image generated successfully!');
+      }
     } catch (error) {
       setLoading(false);
       // console.error('[EditPlant] Error generating pixel art:', error);

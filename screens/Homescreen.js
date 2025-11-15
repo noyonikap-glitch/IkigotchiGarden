@@ -53,10 +53,12 @@ export default function HomeScreen({ navigation, plants, setPlants }) {
               <Text style={styles.plantName}>{item.name}</Text>
               <Image
                 key={item.customImage || item.id}
-                source={item.customImage ? { uri: item.customImage } : getPlantImage(item.type)}
+                source={item.customImage ? { uri: item.customImage } : getPlantImage(item.species || item.genus || item.type)}
                 style={styles.plantImage}
               />
-              <Text style={styles.plantType}>{item.type}</Text>
+              <Text style={styles.plantType}>
+                {item.species || item.genus || ' '}
+              </Text>
               <Text style={styles.plantWater}>
                 Water: Every {item.wateringInterval}{' '}
                 {item.wateringInterval === 1 ? 'day' : 'days'}

@@ -132,3 +132,5 @@ dmypy.json
 *.log
 .DS_Store
 scraper/api-token.env
+
+plan.txt

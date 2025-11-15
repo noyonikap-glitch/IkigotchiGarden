@@ -5,7 +5,8 @@ import { saveCustomPlants, loadCustomPlants } from '../utils/storage';
 
 export default function AddPlantScreen({ navigation, plants, setPlants, customPlants, setCustomPlants }) {
   const [name, setName] = useState('');
-  const [type, setType] = useState([]);
+  const [species, setSpecies] = useState('');
+  const [genus, setGenus] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -15,11 +16,16 @@ export default function AddPlantScreen({ navigation, plants, setPlants, customPl
   }, []);
 
   const handleAddPlant = () => {
-    const interval = getWateringInterval(type, customPlants);
+    if (!name.trim()) {
+      alert('Please enter a plant name');
+      return;
+    }
+
+    const interval = getWateringInterval(species, customPlants);
 
     let updatedCustoms = [...customPlants];
-    if (!customPlants.some(p => p.name.toLowerCase() === type.toLowerCase())) {
-      updatedCustoms.push({ name: type, wateringInterval: 7 });
+    if (species && !customPlants.some(p => p.name.toLowerCase() === species.toLowerCase())) {
+      updatedCustoms.push({ name: species, wateringInterval: 7 });
       setCustomPlants(updatedCustoms);
       saveCustomPlants(updatedCustoms);
     }
@@ -27,7 +33,9 @@ export default function AddPlantScreen({ navigation, plants, setPlants, customPl
     const newPlant = {
       id: (plants.length + 1).toString(),
       name,
-      type,
+      species: species || null,
+      genus: genus || null,
+      type: species || genus || '',
       wateringInterval: interval,
       lastWatered: new Date().toISOString(),
     };
@@ -45,15 +53,21 @@ export default function AddPlantScreen({ navigation, plants, setPlants, customPl
 
       <TextInput
         style={styles.input}
-        placeholder="Plant Name"
+        placeholder="Plant Name (Required)"
         value={name}
         onChangeText={setName}
       />
       <TextInput
         style={styles.input}
-        placeholder="Plant Type"
-        value={type}
-        onChangeText={setType}
+        placeholder="Species (Optional)"
+        value={species}
+        onChangeText={setSpecies}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Genus (Optional)"
+        value={genus}
+        onChangeText={setGenus}
       />
 
       <Button title="Add Plant" onPress={handleAddPlant} color="#34a853" />

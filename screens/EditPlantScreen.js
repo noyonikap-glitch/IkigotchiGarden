@@ -1,6 +1,6 @@
 // screens/editPlantScreen.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,6 +10,7 @@ import { Animated } from 'react-native';
 import { useRef, useCallback } from 'react';
 import { checkPlantSpecies, checkPlantHealth, generatePixelArtImage } from '../utils/geminiService';
 import { loadPlants, savePlants } from '../utils/storage';
+import { detectPlantGenus } from '../utils/visionService';
 
 export default function EditPlantScreen({ route, navigation }) {
   const bounceAnim = useRef(new Animated.Value(1)).current;
@@ -19,6 +20,8 @@ export default function EditPlantScreen({ route, navigation }) {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [customImageUri, setCustomImageUri] = useState(null);
+  const [showMismatchModal, setShowMismatchModal] = useState(false);
+  const [detectedGenus, setDetectedGenus] = useState(null);
 
   // Load plant data when screen is focused
   useFocusEffect(
@@ -89,7 +92,7 @@ export default function EditPlantScreen({ route, navigation }) {
     const notifId = await Notifications.scheduleNotificationAsync({
       content: {
         title: `Water ${plant.name} 🌿`,
-        body: `${plant.type} is due for watering today.`,
+        body: `${plant.species || plant.genus || 'Your plant'} is due for watering today.`,
       },
       trigger: nextWateringDate,
     });
@@ -265,7 +268,101 @@ export default function EditPlantScreen({ route, navigation }) {
     }
   };
 
+  const handleDetectGenus = async () => {
+    try {
+      // Request camera roll permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      // Pick an image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setLoading(true);
+        const imageUri = result.assets[0].uri;
+
+        const genus = await detectPlantGenus(imageUri);
+
+        setLoading(false);
+
+        // Handle null detection
+        if (genus === null) {
+          Alert.alert(
+            'Detection Failed',
+            'The model could not identify a genus for this plant.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+
+        // Check for genus/species mismatch
+        if (plant.species && plant.species.toLowerCase().includes(genus.toLowerCase())) {
+          // Species contains genus - they match, update genus directly
+          const plants = await loadPlants();
+          const updated = plants.map(p =>
+            p.id === plant.id ? { ...p, genus } : p
+          );
+          await savePlants(updated);
+          await loadPlantData();
+          Alert.alert('Success', `Genus updated to "${genus}"`);
+        } else if (plant.species && !plant.species.toLowerCase().includes(genus.toLowerCase())) {
+          // Mismatch detected - show modal
+          setDetectedGenus(genus);
+          setShowMismatchModal(true);
+        } else {
+          // No species present, just update genus
+          const plants = await loadPlants();
+          const updated = plants.map(p =>
+            p.id === plant.id ? { ...p, genus } : p
+          );
+          await savePlants(updated);
+          await loadPlantData();
+          Alert.alert('Success', `Genus set to "${genus}"`);
+        }
+      }
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Error', error.message || 'Failed to detect genus');
+    }
+  };
+
+  const handleMismatchChoice = async (choice) => {
+    const plants = await loadPlants();
+    let updated;
+
+    switch (choice) {
+      case 'keep_both':
+        // Keep both genus and species
+        updated = plants.map(p =>
+          p.id === plant.id ? { ...p, genus: detectedGenus } : p
+        );
+        break;
+      case 'remove_species':
+        // Remove species, keep genus
+        updated = plants.map(p =>
+          p.id === plant.id ? { ...p, species: null, genus: detectedGenus } : p
+        );
+        break;
+      case 'remove_genus':
+        // Keep species, don't update genus
+        updated = plants;
+        break;
+    }
+
+    await savePlants(updated);
+    await loadPlantData();
+    setShowMismatchModal(false);
+    setDetectedGenus(null);
+  };
 
   if (!plant) {
     return (
@@ -282,7 +379,7 @@ export default function EditPlantScreen({ route, navigation }) {
       <Animated.View style={{ transform: [{ translateY: bounceAnim }] }}>
       <Image
         key={customImageUri || plant.id}
-        source={customImageUri ? { uri: customImageUri } : getPlantImage(plant.type)}
+        source={customImageUri ? { uri: customImageUri } : getPlantImage(plant.species || plant.genus || plant.type)}
         style={styles.plantImage}
       />
       </Animated.View>
@@ -319,13 +416,23 @@ export default function EditPlantScreen({ route, navigation }) {
   <Text style={styles.buttonText}>Delete Plant</Text>
 </TouchableOpacity>
 
-<TouchableOpacity
-  style={[styles.pixelArtButton, loading && styles.disabledButton]}
-  onPress={handleGeneratePixelArt}
-  disabled={loading}
->
-  <Text style={styles.buttonText}>Generate Pixel Art 🎨</Text>
-</TouchableOpacity>
+<View style={styles.topAiButtonsContainer}>
+  <TouchableOpacity
+    style={[styles.detectGenusButton, loading && styles.disabledButton]}
+    onPress={handleDetectGenus}
+    disabled={loading}
+  >
+    <Text style={styles.buttonText}>Detect Genus</Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity
+    style={[styles.smallAiButton, loading && styles.disabledButton]}
+    onPress={handleGeneratePixelArt}
+    disabled={loading}
+  >
+    <Text style={styles.buttonText}>Pixel Art 🎨</Text>
+  </TouchableOpacity>
+</View>
 
 <View style={styles.aiButtonsContainer}>
   <TouchableOpacity
@@ -333,7 +440,7 @@ export default function EditPlantScreen({ route, navigation }) {
     onPress={handleCheckSpecies}
     disabled={loading}
   >
-    <Text style={styles.buttonText}>Check species (AI)</Text>
+    <Text style={styles.buttonText}>Check species (Gemini)</Text>
   </TouchableOpacity>
 
   <TouchableOpacity
@@ -341,7 +448,7 @@ export default function EditPlantScreen({ route, navigation }) {
     onPress={handleCheckHealth}
     disabled={loading}
   >
-    <Text style={styles.buttonText}>Check plant health (AI)</Text>
+    <Text style={styles.buttonText}>Check plant health (Gemini)</Text>
   </TouchableOpacity>
 </View>
 
@@ -351,6 +458,45 @@ export default function EditPlantScreen({ route, navigation }) {
     <Text style={styles.loadingText}>Analyzing image...</Text>
   </View>
 )}
+
+<Modal
+  visible={showMismatchModal}
+  transparent={true}
+  animationType="fade"
+  onRequestClose={() => setShowMismatchModal(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContainer}>
+      <Text style={styles.modalTitle}>Genus/Species Mismatch</Text>
+      <Text style={styles.modalText}>
+        The detected genus "{detectedGenus}" doesn't match your current species "{plant?.species}".
+        {'\n\n'}
+        What would you like to do?
+      </Text>
+
+      <TouchableOpacity
+        style={styles.modalButton}
+        onPress={() => handleMismatchChoice('keep_both')}
+      >
+        <Text style={styles.modalButtonText}>Keep Both</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.modalButton, styles.modalButtonWarning]}
+        onPress={() => handleMismatchChoice('remove_species')}
+      >
+        <Text style={styles.modalButtonText}>Remove Species, Keep Genus</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.modalButton, styles.modalButtonCancel]}
+        onPress={() => handleMismatchChoice('remove_genus')}
+      >
+        <Text style={styles.modalButtonText}>Cancel (Keep Species)</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
 
     </View>
   );
@@ -473,12 +619,93 @@ const styles = StyleSheet.create({
   },
 
   plantImage: {
-  width: 150,
-  height: 150,
-  alignSelf: 'center',
-  borderRadius: 16,
-  marginBottom: 20,
-  resizeMode: 'contain',
-}
-  
+    width: 150,
+    height: 150,
+    alignSelf: 'center',
+    borderRadius: 16,
+    marginBottom: 20,
+    resizeMode: 'contain',
+  },
+
+  topAiButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    gap: 10,
+  },
+
+  smallAiButton: {
+    flex: 1,
+    backgroundColor: '#9c27b0',
+    padding: 15,
+    borderRadius: 50,
+    alignItems: 'center',
+  },
+
+  detectGenusButton: {
+    flex: 1,
+    backgroundColor: '#bf0000',
+    padding: 15,
+    borderRadius: 50,
+    alignItems: 'center',
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 25,
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#228B22',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+
+  modalText: {
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+
+  modalButton: {
+    backgroundColor: '#34a853',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+
+  modalButtonWarning: {
+    backgroundColor: '#ff9800',
+  },
+
+  modalButtonCancel: {
+    backgroundColor: '#757575',
+  },
+
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+
 });

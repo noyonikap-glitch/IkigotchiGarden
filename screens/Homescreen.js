@@ -1,6 +1,6 @@
 // screens/HomeScreen.js
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,21 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Image } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import getPlantImage from '../utils/getPlantImage';
 import { loadPlants } from '../utils/storage';
+import { checkPlantSpecies } from '../utils/geminiService';
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function HomeScreen({ navigation, plants, setPlants }) {
+  const [loading, setLoading] = useState(false);
+
   useFocusEffect(
     React.useCallback(() => {
       // console.log('[HomeScreen] Screen focused, reloading plants from storage');
@@ -66,17 +72,63 @@ export default function HomeScreen({ navigation, plants, setPlants }) {
         )}
       />
 
-      <AddPlantButton />
+      <AddPlantButton loading={loading} setLoading={setLoading} />
+
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#4285f4" />
+          <Text style={styles.loadingText}>Analyzing image...</Text>
+          <Text style={styles.subLoadingText}>Be right back...</Text>
+        </View>
+      )}
     </View>
   );
 }
 
-function AddPlantButton() {
+function AddPlantButton({ loading, setLoading }) {
   const navigation = useNavigation();
+
+  const handleAddPlant = async () => {
+    try {
+      // Request camera roll permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      // Pick an image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setLoading(true);
+        const imageUri = result.assets[0].uri;
+
+        // Call Gemini to identify the plant species
+        const species = await checkPlantSpecies(imageUri);
+
+        setLoading(false);
+
+        // Navigate to AddPlant screen with the species information
+        navigation.navigate('AddPlant', { identifiedSpecies: species });
+      }
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Error', error.message || 'Failed to identify plant');
+    }
+  };
+
   return (
     <TouchableOpacity
-      style={styles.addButton}
-      onPress={() => navigation.navigate('AddPlant')}
+      style={[styles.addButton, loading && styles.disabledButton]}
+      onPress={handleAddPlant}
+      disabled={loading}
     >
       <Text style={styles.addButtonText}>+ Add Plant</Text>
     </TouchableOpacity>
@@ -143,9 +195,33 @@ const styles = StyleSheet.create({
     bottom: 40,
     right: 20,
   },
+  disabledButton: {
+    backgroundColor: '#a0a0a0',
+  },
   addButtonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 16,
+    marginTop: 10,
+    fontWeight: '600',
+  },
+  subLoadingText: {
+    color: '#fff',
+    fontSize: 14,
+    marginTop: 5,
   },
 });

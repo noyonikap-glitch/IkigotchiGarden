@@ -30,6 +30,8 @@ async function uriToBase64(uri) {
  */
 export async function checkPlantSpecies(imageUri) {
   try {
+
+    console.log(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
     const base64Image = await uriToBase64(imageUri);
@@ -48,6 +50,8 @@ export async function checkPlantSpecies(imageUri) {
     const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
     const text = response.text();
+
+    console.log(text);
 
     return text;
   } catch (error) {

@@ -3,9 +3,9 @@ import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
 import { getWateringInterval } from '../utils/getWateringInterval';
 import { saveCustomPlants, loadCustomPlants } from '../utils/storage';
 
-export default function AddPlantScreen({ navigation, plants, setPlants, customPlants, setCustomPlants }) {
+export default function AddPlantScreen({ navigation, route, plants, setPlants, customPlants, setCustomPlants }) {
   const [name, setName] = useState('');
-  const [type, setType] = useState([]);
+  const [type, setType] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -13,6 +13,16 @@ export default function AddPlantScreen({ navigation, plants, setPlants, customPl
       setCustomPlants(loaded);
     })();
   }, []);
+
+  // Pre-fill the type field if species was identified
+  useEffect(() => {
+    if (route.params?.identifiedSpecies) {
+      // Extract just the common name (first line before scientific name)
+      const species = route.params.identifiedSpecies;
+      const commonName = species.split('\n')[0].trim();
+      setType(commonName);
+    }
+  }, [route.params]);
 
   const handleAddPlant = () => {
     const interval = getWateringInterval(type, customPlants);

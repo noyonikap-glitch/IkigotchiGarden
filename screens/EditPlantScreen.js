@@ -346,9 +346,10 @@ export default function EditPlantScreen({ route, navigation }) {
 </View>
 
 {loading && (
-  <View style={styles.loadingContainer}>
+  <View style={styles.loadingOverlay}>
     <ActivityIndicator size="large" color="#4285f4" />
     <Text style={styles.loadingText}>Analyzing image...</Text>
+    <Text style={styles.subLoadingText}>Be right back...</Text>
   </View>
 )}
 
@@ -443,16 +444,28 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 
-  loadingContainer: {
-    marginTop: 20,
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
 
   loadingText: {
-    marginTop: 10,
+    color: '#fff',
     fontSize: 16,
-    color: '#4285f4',
+    marginTop: 10,
     fontWeight: '600',
+  },
+
+  subLoadingText: {
+    color: '#fff',
+    fontSize: 14,
+    marginTop: 5,
   },
 
   buttonText: {

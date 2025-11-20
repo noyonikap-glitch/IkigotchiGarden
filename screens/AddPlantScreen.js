@@ -6,6 +6,7 @@ import { saveCustomPlants, loadCustomPlants } from '../utils/storage';
 export default function AddPlantScreen({ navigation, route, plants, setPlants, customPlants, setCustomPlants }) {
   const [name, setName] = useState('');
   const [type, setType] = useState('');
+  const [watering, setWatering] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -64,6 +65,12 @@ export default function AddPlantScreen({ navigation, route, plants, setPlants, c
         placeholder="Plant Type"
         value={type}
         onChangeText={setType}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Watering period"
+        value={watering}
+        onChangeText={setWatering}
       />
 
       <Button title="Add Plant" onPress={handleAddPlant} color="#34a853" />

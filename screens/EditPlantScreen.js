@@ -1,6 +1,6 @@
 // screens/editPlantScreen.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,6 +19,8 @@ export default function EditPlantScreen({ route, navigation }) {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [customImageUri, setCustomImageUri] = useState(null);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [showActionModal, setShowActionModal] = useState(false);
 
   // Load plant data when screen is focused
   useFocusEffect(
@@ -49,7 +51,8 @@ export default function EditPlantScreen({ route, navigation }) {
       p.id === plant.id ? { ...p, name } : p
     );
     await savePlants(updated);
-    navigation.goBack();
+    setIsEditingName(false);
+    await loadPlantData();
   };
 
   const handleDelete = () => {
@@ -265,6 +268,64 @@ export default function EditPlantScreen({ route, navigation }) {
     }
   };
 
+  const handleRetakeImage = async () => {
+    setShowActionModal(false);
+    try {
+      // Request camera roll permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      // Pick an image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setLoading(true);
+        const imageUri = result.assets[0].uri;
+
+        const species = await checkPlantSpecies(imageUri);
+
+        setLoading(false);
+
+        // Extract scientific name from the response (assuming it's in parentheses)
+        const newScientificName = species.match(/\(([^)]+)\)/)?.[1] || '';
+        const currentScientificName = plant.type.match(/\(([^)]+)\)/)?.[1] || plant.type;
+
+        // Check if it's a different species
+        if (newScientificName && currentScientificName && 
+            newScientificName.toLowerCase() !== currentScientificName.toLowerCase()) {
+          Alert.alert(
+            'Different Plant Detected',
+            'Please create a new plant entry for a different plant species.',
+            [{ text: 'OK' }]
+          );
+        }
+        // If same species, do nothing for now as requested
+      }
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Error', error.message || 'Failed to check species');
+    }
+  };
+
+  const handleMarkWateredFromModal = async () => {
+    setShowActionModal(false);
+    await handleMarkWatered();
+  };
+
+  const handleGeneratePixelArtFromModal = async () => {
+    setShowActionModal(false);
+    await handleGeneratePixelArt();
+  };
+
 
 
   if (!plant) {
@@ -275,100 +336,163 @@ export default function EditPlantScreen({ route, navigation }) {
     );
   }
 
+  const lastWatered = plant.wateringLog && plant.wateringLog.length > 0
+    ? new Date(plant.wateringLog[plant.wateringLog.length - 1]).toLocaleDateString()
+    : 'Never';
+
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>{plant.name}</Text>
+      {/* Header with Save Button */}
+      <View style={styles.headerContainer}>
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity style={styles.saveButtonTop} onPress={handleRename}>
+          <Text style={styles.saveButtonText}>Save</Text>
+        </TouchableOpacity>
+      </View>
 
+      {/* Plant Image */}
       <Animated.View style={{ transform: [{ translateY: bounceAnim }] }}>
-      <Image
-        key={customImageUri || plant.id}
-        source={customImageUri ? { uri: customImageUri } : getPlantImage(plant.type)}
-        style={styles.plantImage}
-      />
+        <Image
+          key={customImageUri || plant.id}
+          source={customImageUri ? { uri: customImageUri } : getPlantImage(plant.type)}
+          style={styles.plantImage}
+        />
       </Animated.View>
 
+      {/* Editable Plant Name */}
+      {isEditingName ? (
+        <TextInput
+          style={styles.nameInput}
+          value={name}
+          onChangeText={setName}
+          onBlur={() => setIsEditingName(false)}
+          autoFocus
+        />
+      ) : (
+        <TouchableOpacity onPress={() => setIsEditingName(true)}>
+          <Text style={styles.plantName}>{name}</Text>
+        </TouchableOpacity>
+      )}
 
-      <TextInput
-        style={styles.input}
-        value={name}
-        onChangeText={setName}
-        placeholder="Plant Name"
-      />
+      {/* Info Rows */}
+      <View style={styles.infoContainer}>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Species</Text>
+          <Text style={styles.infoValue}>{plant.type}</Text>
+        </View>
 
-{plant.wateringLog && plant.wateringLog.length > 0 && (
-  <View style={{ marginVertical: 20 }}>
-    <Text style={styles.logHeader}>Watering History:</Text>
-    {plant.wateringLog.slice(-3).reverse().map((entry, index) => (
-      <Text key={index} style={styles.logEntry}>
-        {new Date(entry).toLocaleDateString()} at {new Date(entry).toLocaleTimeString()}
-      </Text>
-    ))}
-  </View>
-)}
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Last Watered</Text>
+          <Text style={styles.infoValue}>{lastWatered}</Text>
+        </View>
 
-<TouchableOpacity style={styles.saveButton} onPress={handleMarkWatered}>
-  <Text style={styles.buttonText}>Mark as Watered</Text>
-</TouchableOpacity>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Water Cycle</Text>
+          <Text style={styles.infoValue}>Every {plant.wateringInterval || 7} days</Text>
+        </View>
 
-<TouchableOpacity style={styles.saveButton} onPress={handleRename}>
-  <Text style={styles.buttonText}>Save Changes</Text>
-</TouchableOpacity>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Health</Text>
+          <Text style={styles.infoValue}>Good</Text>
+        </View>
+      </View>
 
+      {/* Bottom Buttons */}
+      <View style={styles.bottomContainer}>
+        <TouchableOpacity style={styles.deleteButtonBottom} onPress={handleDelete}>
+          <Text style={styles.deleteButtonText}>Delete</Text>
+        </TouchableOpacity>
 
-<TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-  <Text style={styles.buttonText}>Delete Plant</Text>
-</TouchableOpacity>
+        <TouchableOpacity style={styles.addButtonCircle} onPress={() => setShowActionModal(true)}>
+          <Text style={styles.addButtonText}>+</Text>
+        </TouchableOpacity>
+      </View>
 
-<TouchableOpacity
-  style={[styles.pixelArtButton, loading && styles.disabledButton]}
-  onPress={handleGeneratePixelArt}
-  disabled={loading}
->
-  <Text style={styles.buttonText}>Generate Pixel Art 🎨</Text>
-</TouchableOpacity>
+      {/* Action Modal */}
+      <Modal
+        visible={showActionModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowActionModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowActionModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleRetakeImage}
+            >
+              <Text style={styles.modalButtonText}>Retake Image</Text>
+            </TouchableOpacity>
 
-<View style={styles.aiButtonsContainer}>
-  <TouchableOpacity
-    style={[styles.aiButton, loading && styles.disabledButton]}
-    onPress={handleCheckSpecies}
-    disabled={loading}
-  >
-    <Text style={styles.buttonText}>Check species (AI)</Text>
-  </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleMarkWateredFromModal}
+            >
+              <Text style={styles.modalButtonText}>Mark as Watered</Text>
+            </TouchableOpacity>
 
-  <TouchableOpacity
-    style={[styles.aiButton, loading && styles.disabledButton]}
-    onPress={handleCheckHealth}
-    disabled={loading}
-  >
-    <Text style={styles.buttonText}>Check plant health (AI)</Text>
-  </TouchableOpacity>
-</View>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleGeneratePixelArtFromModal}
+            >
+              <Text style={styles.modalButtonText}>Regenerate Pixel Art</Text>
+            </TouchableOpacity>
 
-{loading && (
-  <View style={styles.loadingOverlay}>
-    <ActivityIndicator size="large" color="#4285f4" />
-    <Text style={styles.loadingText}>Analyzing image...</Text>
-    <Text style={styles.subLoadingText}>Be right back...</Text>
-  </View>
-)}
+            <TouchableOpacity
+              style={[styles.modalButton, styles.cancelButton]}
+              onPress={() => setShowActionModal(false)}
+            >
+              <Text style={styles.modalButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#4285f4" />
+          <Text style={styles.loadingText}>Analyzing image...</Text>
+          <Text style={styles.subLoadingText}>Be right back...</Text>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
     backgroundColor: '#f0fdf4',
     padding: 20,
-    justifyContent: 'center',
+  },
+
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 40,
+    marginBottom: 20,
+  },
+
+  saveButtonTop: {
+    backgroundColor: '#34a853',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 
   plantImage: {
-    width: 120,
-    height: 120,
+    width: 150,
+    height: 150,
     alignSelf: 'center',
     borderRadius: 16,
     marginBottom: 20,
@@ -382,66 +506,125 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 5,
   },
-  
-  header: {
+
+  plantName: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 30,
     textAlign: 'center',
     color: '#228B22',
+    marginBottom: 30,
   },
-  
-  input: {
+
+  nameInput: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#228B22',
+    marginBottom: 30,
+    borderBottomWidth: 2,
+    borderBottomColor: '#228B22',
+    paddingBottom: 5,
+  },
+
+  infoContainer: {
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 20,
-    fontSize: 16,
-    borderColor: '#ccc',
-    borderWidth: 1,
-  },
-  saveButton: {
-    backgroundColor: '#34a853',
-    padding: 15,
-    borderRadius: 50, // makes it round
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  
-  deleteButton: {
-    backgroundColor: '#d9534f',
-    padding: 15,
-    borderRadius: 50,
-    alignItems: 'center',
-    marginTop: 20,
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 30,
   },
 
-  pixelArtButton: {
-    backgroundColor: '#9c27b0',
-    padding: 15,
-    borderRadius: 50,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-
-  aiButtonsContainer: {
+  infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
-    gap: 10,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
 
-  aiButton: {
-    flex: 1,
-    backgroundColor: '#4285f4',
-    padding: 15,
-    borderRadius: 50,
+  infoLabel: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+
+  infoValue: {
+    fontSize: 16,
+    color: '#228B22',
+    fontWeight: 'bold',
+    textAlign: 'right',
+  },
+
+  bottomContainer: {
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
     alignItems: 'center',
   },
 
-  disabledButton: {
-    backgroundColor: '#ccc',
-    opacity: 0.6,
+  deleteButtonBottom: {
+    flex: 1,
+    backgroundColor: '#d9534f',
+    paddingVertical: 15,
+    borderRadius: 25,
+    marginRight: 10,
+    alignItems: 'center',
+  },
+
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+
+  addButtonCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#34a853',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  addButtonText: {
+    color: '#fff',
+    fontSize: 30,
+    fontWeight: 'bold',
+    lineHeight: 30,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '80%',
+    maxWidth: 300,
+  },
+
+  modalButton: {
+    backgroundColor: '#34a853',
+    padding: 15,
+    borderRadius: 25,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+
+  cancelButton: {
+    backgroundColor: '#666',
+  },
+
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 
   loadingOverlay: {
@@ -467,31 +650,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 5,
   },
-
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },  
-
-  logHeader: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 5,
-  },
-  
-  logEntry: {
-    fontSize: 14,
-    color: '#555',
-  },
-
-  plantImage: {
-  width: 150,
-  height: 150,
-  alignSelf: 'center',
-  borderRadius: 16,
-  marginBottom: 20,
-  resizeMode: 'contain',
-}
-  
 });
+

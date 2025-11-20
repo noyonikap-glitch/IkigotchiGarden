@@ -23,6 +23,7 @@ export default function EditPlantScreen({ route, navigation }) {
   const [customImageUri, setCustomImageUri] = useState(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [showActionModal, setShowActionModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Load plant data when screen is focused
   useFocusEffect(
@@ -53,22 +54,15 @@ export default function EditPlantScreen({ route, navigation }) {
     await loadPlantData();
   };
 
-  const handleDelete = () => {
-    Alert.alert(
-      'Delete Plant',
-      `Are you sure you want to delete "${plant.name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            await deletePlant(plant.id);
-            navigation.goBack();
-          }
-        }
-      ]
-    );
+  const handleDelete = async () => {
+    setShowDeleteModal(false);
+    try {
+      await deletePlant(plant.id);
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to delete plant');
+      console.error('Delete error:', error);
+    }
   };
 
 
@@ -248,7 +242,7 @@ export default function EditPlantScreen({ route, navigation }) {
 
       {/* Bottom Buttons */}
       <View style={styles.bottomContainer}>
-        <TouchableOpacity style={styles.deleteButtonBottom} onPress={handleDelete}>
+        <TouchableOpacity style={styles.deleteButtonBottom} onPress={() => setShowDeleteModal(true)}>
           <Text style={styles.deleteButtonText}>Delete</Text>
         </TouchableOpacity>
 
@@ -300,6 +294,41 @@ export default function EditPlantScreen({ route, navigation }) {
             <TouchableOpacity
               style={[styles.modalButton, styles.cancelButton]}
               onPress={() => setShowActionModal(false)}
+            >
+              <Text style={styles.modalButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDeleteModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.deleteModalTitle}>Delete Plant</Text>
+            <Text style={styles.deleteModalMessage}>
+              Are you sure you want to delete "{plant.name}"?
+            </Text>
+            
+            <TouchableOpacity
+              style={[styles.modalButton, styles.deleteConfirmButton]}
+              onPress={handleDelete}
+            >
+              <Text style={styles.modalButtonText}>Delete</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalButton, styles.cancelButton]}
+              onPress={() => setShowDeleteModal(false)}
             >
               <Text style={styles.modalButtonText}>Cancel</Text>
             </TouchableOpacity>
@@ -468,6 +497,26 @@ const styles = StyleSheet.create({
 
   cancelButton: {
     backgroundColor: '#666',
+  },
+
+  deleteConfirmButton: {
+    backgroundColor: '#d9534f',
+  },
+
+  deleteModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+
+  deleteModalMessage: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 
   modalButtonText: {

@@ -15,6 +15,7 @@ import { Image } from 'react-native';
 import getPlantImage from '../utils/getPlantImage';
 import { loadPlants } from '../utils/storage';
 import { checkPlantSpecies } from '../utils/geminiService';
+import { classifyPlantWithAI, extractGenus } from '../utils/plantClassificationService';
 import { pickImageFromGallery } from '../utils/imagePicker';
 import LoadingOverlay from '../components/LoadingOverlay';
 
@@ -90,13 +91,38 @@ function AddPlantButton({ loading, setLoading }) {
 
       setLoading(true);
 
-      // Call Gemini to identify the plant species
-      const species = await checkPlantSpecies(imageUri);
+      // Call both Gemini and AI backend in parallel
+      const [geminiSpecies, aiResult] = await Promise.all([
+        checkPlantSpecies(imageUri),
+        classifyPlantWithAI(imageUri)
+      ]);
+
+      // Extract genus from Gemini result
+      const geminiGenus = extractGenus(geminiSpecies);
+      const aiGenus = aiResult?.top_prediction?.genus?.toLowerCase();
+
+      console.log('[HandleAddPlant] Gemini species:', geminiSpecies);
+      console.log('[HandleAddPlant] Gemini genus:', geminiGenus);
+      console.log('[HandleAddPlant] AI genus:', aiGenus);
+      console.log('[HandleAddPlant] AI confidence:', aiResult?.top_prediction?.confidence);
+
+      // Decide which result to use
+      let finalSpecies;
+      if (geminiGenus && aiGenus && geminiGenus === aiGenus) {
+        // Genus matches - use Gemini's more detailed output
+        finalSpecies = geminiSpecies;
+        console.log('[HandleAddPlant] Genus match! Using Gemini result');
+      } else {
+        // Genus doesn't match - use AI model output
+        const aiPrediction = aiResult?.top_prediction;
+        finalSpecies = aiPrediction?.genus || geminiSpecies;
+        console.log('[HandleAddPlant] Genus mismatch or no match. Using AI result:', finalSpecies);
+      }
 
       setLoading(false);
 
       // Navigate to AddPlant screen with the species information
-      navigation.navigate('AddPlant', { identifiedSpecies: species });
+      navigation.navigate('AddPlant', { identifiedSpecies: finalSpecies });
     } catch (error) {
       setLoading(false);
       Alert.alert('Error', error.message || 'Failed to identify plant');

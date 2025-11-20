@@ -3,13 +3,15 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
-import * as ImagePicker from 'expo-image-picker';
 import getPlantImage from '../utils/getPlantImage';
 import { Image } from 'react-native';
 import { Animated } from 'react-native';
 import { useRef, useCallback } from 'react';
-import { checkPlantSpecies, checkPlantHealth, generatePixelArtImage } from '../utils/geminiService';
+import { checkPlantSpecies, generatePixelArtImage } from '../utils/geminiService';
 import { loadPlants, savePlants } from '../utils/storage';
+import { pickImageFromGallery } from '../utils/imagePicker';
+import { updatePlant, deletePlant } from '../utils/plantStorage';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 export default function EditPlantScreen({ route, navigation }) {
   const bounceAnim = useRef(new Animated.Value(1)).current;
@@ -46,11 +48,7 @@ export default function EditPlantScreen({ route, navigation }) {
   };
 
   const handleRename = async () => {
-    const plants = await loadPlants();
-    const updated = plants.map(p =>
-      p.id === plant.id ? { ...p, name } : p
-    );
-    await savePlants(updated);
+    await updatePlant(plant.id, { name });
     setIsEditingName(false);
     await loadPlantData();
   };
@@ -65,9 +63,7 @@ export default function EditPlantScreen({ route, navigation }) {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const plants = await loadPlants();
-            const updated = plants.filter(p => p.id !== plant.id);
-            await savePlants(updated);
+            await deletePlant(plant.id);
             navigation.goBack();
           }
         }
@@ -126,144 +122,25 @@ export default function EditPlantScreen({ route, navigation }) {
     ]).start();
   };
 
-  const handleCheckSpecies = async () => {
-    try {
-      // Request camera roll permissions
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
-        return;
-      }
-
-      // Pick an image
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
-
-      if (!result.canceled) {
-        setLoading(true);
-        const imageUri = result.assets[0].uri;
-
-        const species = await checkPlantSpecies(imageUri);
-
-        setLoading(false);
-
-        // Ask user if they want to update the plant type
-        Alert.alert(
-          'Species Identified',
-          species,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Update Plant Type',
-              onPress: async () => {
-                const plants = await loadPlants();
-                const updated = plants.map(p =>
-                  p.id === plant.id ? { ...p, type: species.split('\n')[0].trim() } : p
-                );
-                await savePlants(updated);
-                await loadPlantData();
-                Alert.alert('Success', 'Plant type updated!');
-              }
-            }
-          ]
-        );
-      }
-    } catch (error) {
-      setLoading(false);
-      Alert.alert('Error', error.message || 'Failed to check species');
-    }
-  };
-
-  const handleCheckHealth = async () => {
-    try {
-      // Request camera roll permissions
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
-        return;
-      }
-
-      // Pick an image
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
-
-      if (!result.canceled) {
-        setLoading(true);
-        const imageUri = result.assets[0].uri;
-
-        const healthReport = await checkPlantHealth(imageUri);
-
-        setLoading(false);
-
-        // Display health report
-        Alert.alert('Plant Health Report', healthReport, [{ text: 'OK' }]);
-      }
-    } catch (error) {
-      setLoading(false);
-      Alert.alert('Error', error.message || 'Failed to check plant health');
-    }
-  };
-
   const handleGeneratePixelArt = async () => {
     try {
-      // Request camera roll permissions
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const sourceImageUri = await pickImageFromGallery();
+      
+      if (!sourceImageUri) return;
 
-      if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
-        return;
-      }
+      setLoading(true);
 
-      // Pick an image
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
+      // Generate pixel art using the selected image
+      const generatedImageUri = await generatePixelArtImage(sourceImageUri);
 
-      if (!result.canceled) {
-        setLoading(true);
-        const sourceImageUri = result.assets[0].uri;
-        // console.log('[EditPlant] Starting pixel art generation with image:', sourceImageUri);
+      // Update plant with custom image
+      await updatePlant(plant.id, { customImage: generatedImageUri });
 
-        // Generate pixel art using the selected image
-        const generatedImageUri = await generatePixelArtImage(sourceImageUri);
-        // console.log('[EditPlant] Generated image URI:', generatedImageUri);
-
-        // Update plant with custom image
-        const plants = await loadPlants();
-        // console.log('[EditPlant] Loaded plants before update:', plants.length);
-        const updated = plants.map(p =>
-          p.id === plant.id ? { ...p, customImage: generatedImageUri } : p
-        );
-        // console.log('[EditPlant] Saving updated plants to storage');
-        await savePlants(updated);
-        // console.log('[EditPlant] Plants saved successfully');
-
-        // Verify save
-        const verifyPlants = await loadPlants();
-        const verifyPlant = verifyPlants.find(p => p.id === plant.id);
-        // console.log('[EditPlant] Verification - Plant custom image:', verifyPlant?.customImage);
-
-        setCustomImageUri(generatedImageUri);
-
-        setLoading(false);
-        Alert.alert('Success', 'Pixel art image generated successfully!');
-      }
+      setCustomImageUri(generatedImageUri);
+      setLoading(false);
+      Alert.alert('Success', 'Pixel art image generated successfully!');
     } catch (error) {
       setLoading(false);
-      // console.error('[EditPlant] Error generating pixel art:', error);
       Alert.alert('Error', error.message || 'Failed to generate pixel art image');
     }
   };
@@ -271,61 +148,33 @@ export default function EditPlantScreen({ route, navigation }) {
   const handleRetakeImage = async () => {
     setShowActionModal(false);
     try {
-      // Request camera roll permissions
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const imageUri = await pickImageFromGallery();
+      
+      if (!imageUri) return;
 
-      if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
-        return;
+      setLoading(true);
+      const species = await checkPlantSpecies(imageUri);
+      setLoading(false);
+
+      // Extract scientific name from the response (assuming it's in parentheses)
+      const newScientificName = species.match(/\(([^)]+)\)/)?.[1] || '';
+      const currentScientificName = plant.type.match(/\(([^)]+)\)/)?.[1] || plant.type;
+
+      // Check if it's a different species
+      if (newScientificName && currentScientificName && 
+          newScientificName.toLowerCase() !== currentScientificName.toLowerCase()) {
+        Alert.alert(
+          'Different Plant Detected',
+          'Please create a new plant entry for a different plant species.',
+          [{ text: 'OK' }]
+        );
       }
-
-      // Pick an image
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
-
-      if (!result.canceled) {
-        setLoading(true);
-        const imageUri = result.assets[0].uri;
-
-        const species = await checkPlantSpecies(imageUri);
-
-        setLoading(false);
-
-        // Extract scientific name from the response (assuming it's in parentheses)
-        const newScientificName = species.match(/\(([^)]+)\)/)?.[1] || '';
-        const currentScientificName = plant.type.match(/\(([^)]+)\)/)?.[1] || plant.type;
-
-        // Check if it's a different species
-        if (newScientificName && currentScientificName && 
-            newScientificName.toLowerCase() !== currentScientificName.toLowerCase()) {
-          Alert.alert(
-            'Different Plant Detected',
-            'Please create a new plant entry for a different plant species.',
-            [{ text: 'OK' }]
-          );
-        }
-        // If same species, do nothing for now as requested
-      }
+      // If same species, do nothing for now as requested
     } catch (error) {
       setLoading(false);
       Alert.alert('Error', error.message || 'Failed to check species');
     }
   };
-
-  const handleMarkWateredFromModal = async () => {
-    setShowActionModal(false);
-    await handleMarkWatered();
-  };
-
-  const handleGeneratePixelArtFromModal = async () => {
-    setShowActionModal(false);
-    await handleGeneratePixelArt();
-  };
-
 
 
   if (!plant) {
@@ -430,14 +279,20 @@ export default function EditPlantScreen({ route, navigation }) {
 
             <TouchableOpacity
               style={styles.modalButton}
-              onPress={handleMarkWateredFromModal}
+              onPress={() => {
+                setShowActionModal(false);
+                handleMarkWatered();
+              }}
             >
               <Text style={styles.modalButtonText}>Mark as Watered</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.modalButton}
-              onPress={handleGeneratePixelArtFromModal}
+              onPress={() => {
+                setShowActionModal(false);
+                handleGeneratePixelArt();
+              }}
             >
               <Text style={styles.modalButtonText}>Regenerate Pixel Art</Text>
             </TouchableOpacity>
@@ -452,13 +307,7 @@ export default function EditPlantScreen({ route, navigation }) {
         </TouchableOpacity>
       </Modal>
 
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#4285f4" />
-          <Text style={styles.loadingText}>Analyzing image...</Text>
-          <Text style={styles.subLoadingText}>Be right back...</Text>
-        </View>
-      )}
+      {loading && <LoadingOverlay />}
     </View>
   );
 }
@@ -625,30 +474,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  loadingText: {
-    color: '#fff',
-    fontSize: 16,
-    marginTop: 10,
-    fontWeight: '600',
-  },
-
-  subLoadingText: {
-    color: '#fff',
-    fontSize: 14,
-    marginTop: 5,
   },
 });
 

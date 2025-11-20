@@ -8,6 +8,7 @@ from app.service.plant_data_service import PlantDataService
 from app.service.user_plant_service import UserPlantService
 from app.controller.plant_data_controller import PlantDataController
 from app.controller.user_plant_controller import UserPlantController
+from app.controller.vision_controller import VisionController
 
 # Create FastAPI app
 app = FastAPI(title="IkigotchiGarden API", version="1.0.0", description="Plant care companion API with layered architecture")
@@ -39,8 +40,11 @@ def setup_dependencies():
 
 # Setup and register routers
 plant_controller, user_controller = setup_dependencies()
+vision_controller = VisionController()
+
 app.include_router(plant_controller.router)
 app.include_router(user_controller.router)
+app.include_router(vision_controller.router)
 
 # Root endpoint
 @app.get("/")

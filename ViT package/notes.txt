@@ -1,0 +1,11 @@
+Model accepts 224x224 images
+
+Data should be processed as 3x224x224 with mean [0.485, 0.456, 0.406] 
+and std dev [0.229, 0.224, 0.225]
+
+Outputs array of size 500
+Use argmax and then send use label mapping to get output
+
+Claude wrote README_ONNX.md, will probably contain some better 
+instructions (and other unnecessary, though possibly interesting data)
+but might also contain hallucinations

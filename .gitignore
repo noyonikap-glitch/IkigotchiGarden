@@ -133,4 +133,10 @@ dmypy.json
 .DS_Store
 scraper/api-token.env
 
+# ONNX Models (large files)
+*.onnx
+*.pth
+backend/models/*.onnx
+backend/models/*.pth
+
 plan.txt

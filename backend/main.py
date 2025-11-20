@@ -1,21 +1,18 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
+# from sqlalchemy.orm import Session
 
-# Import database and models
-from app.database import get_db, engine
-from app.models import Base
+# from app.database import get_db, engine
+# from app.models import Base
 
-# Import layers
-from app.repository.plant_data_repository import PlantDataRepository
-from app.repository.user_plant_repository import UserPlantRepository
-from app.service.plant_data_service import PlantDataService
-from app.service.user_plant_service import UserPlantService
-from app.controller.plant_data_controller import PlantDataController
-from app.controller.user_plant_controller import UserPlantController
-
-# Create database tables on startup
-Base.metadata.create_all(bind=engine)
+# from app.repository.plant_data_repository import PlantDataRepository
+# from app.repository.user_plant_repository import UserPlantRepository
+# from app.service.plant_data_service import PlantDataService
+# from app.service.user_plant_service import UserPlantService
+# from app.controller.plant_data_controller import PlantDataController
+# from app.controller.user_plant_controller import UserPlantController
+from app.controller.plant_classification_controller import router as classification_router
+from app.service.plant_classification_service import initialize_model
 
 # Create FastAPI app
 app = FastAPI(
@@ -33,36 +30,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dependency injection setup with database session
-def get_plant_data_controller(db: Session = Depends(get_db)) -> PlantDataController:
-    # Repositories (Data Access Layer)
-    plant_data_repo = PlantDataRepository()
-    plant_data_repo.set_db_session(db)
-    
-    # Services (Business Logic Layer)
-    plant_data_service = PlantDataService(plant_data_repo)
-    
-    # Controllers (Presentation Layer)
-    return PlantDataController(plant_data_service)
 
-def get_user_plant_controller(db: Session = Depends(get_db)) -> UserPlantController:
-    # Repositories (Data Access Layer)
-    user_plant_repo = UserPlantRepository()
-    user_plant_repo.set_db_session(db)
-    
-    # Services (Business Logic Layer)
-    user_plant_service = UserPlantService(user_plant_repo)
-    
-    # Controllers (Presentation Layer)
-    return UserPlantController(user_plant_service)
+# def get_plant_data_controller(db: Session = Depends(get_db)) -> PlantDataController:
+#     plant_data_repo = PlantDataRepository()
+#     plant_data_repo.set_db_session(db)
+#     plant_data_service = PlantDataService(plant_data_repo)
+#     return PlantDataController(plant_data_service)
+#
+# def get_user_plant_controller(db: Session = Depends(get_db)) -> UserPlantController:
+#     user_plant_repo = UserPlantRepository()
+#     user_plant_repo.set_db_session(db)
+#     user_plant_service = UserPlantService(user_plant_repo)
+#     plant_data_controller = PlantDataController(plant_data_service)
+#     user_plant_controller = UserPlantController(user_plant_service)
+#     return plant_data_controller, user_plant_controller
 
-# Create a single instance to register routes
-temp_plant_controller = PlantDataController(None)  # Just for route registration
-temp_user_controller = UserPlantController(None)   # Just for route registration
+# Only register the classification router for now. Database-backed routers are disabled.
+app.include_router(classification_router)
 
-# Register route blueprints (controllers will be injected per request)
-app.include_router(temp_plant_controller.router)
-app.include_router(temp_user_controller.router)
+# Initialize ML model on startup
+@app.on_event("startup")
+async def startup_event():
+    print("[App] Initializing plant classification model...")
+    initialize_model()
+    print("[App] Model initialization complete")
 
 # Root endpoint
 @app.get("/")

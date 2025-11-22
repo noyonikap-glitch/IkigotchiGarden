@@ -28,7 +28,7 @@
     "onnxruntime-react-native": "^1.23.2",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "react-native": "0.79.5",
+    "react-native": "0.79.6",
     "react-native-dotenv": "^3.4.11",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-pager-view": "6.7.1",

@@ -7,14 +7,12 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Image } from 'react-native';
 import getPlantImage from '../utils/getPlantImage';
 import { loadPlants } from '../utils/storage';
-
-const screenWidth = Dimensions.get('window').width;
+import { scale, verticalScale, moderateScale, screenWidth } from '../utils/layout';
 
 export default function HomeScreen({ navigation, plants, setPlants }) {
   useFocusEffect(
@@ -89,65 +87,65 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f0fdf4',
-    paddingTop: 50,
-    paddingHorizontal: 20,
+    paddingTop: verticalScale(50),
+    paddingHorizontal: scale(20),
   },
   header: {
-    fontSize: 32,
+    fontSize: moderateScale(32),
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: verticalScale(20),
     textAlign: 'center',
     color: '#228B22',
   },
   gridContainer: {
-    paddingBottom: 80,
+    paddingBottom: verticalScale(80),
   },
   columnWrapper: {
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: verticalScale(16),
   },
   plantCard: {
     backgroundColor: '#d4edda',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: scale(12),
+    padding: scale(12),
     width: screenWidth * 0.43,
     alignItems: 'center',
   },
   plantName: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
     textAlign: 'center',
   },
   plantType: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#444',
     textAlign: 'center',
   },
   plantWater: {
-    fontSize: 13,
-    marginTop: 4,
+    fontSize: moderateScale(13),
+    marginTop: verticalScale(4),
     color: '#228B22',
     textAlign: 'center',
   },
   plantImage: {
-    width: 70,
-    height: 70,
+    width: scale(70),
+    height: scale(70),
     resizeMode: 'contain',
-    marginVertical: 8,
+    marginVertical: verticalScale(8),
   },
   addButton: {
     backgroundColor: '#34a853',
-    padding: 15,
-    borderRadius: 50,
+    padding: scale(15),
+    borderRadius: scale(50),
     alignItems: 'center',
     position: 'absolute',
-    bottom: 40,
-    right: 20,
+    bottom: verticalScale(40),
+    right: scale(20),
   },
   addButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: 'bold',
   },
 });

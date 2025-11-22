@@ -1,6 +1,6 @@
 // screens/editPlantScreen.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, ScrollView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,6 +11,7 @@ import { useRef, useCallback } from 'react';
 import { checkPlantSpecies, checkPlantHealth, generatePixelArtImage } from '../utils/geminiService';
 import { loadPlants, savePlants } from '../utils/storage';
 import { detectPlantGenus } from '../utils/visionService';
+import { scale, verticalScale, moderateScale } from '../utils/layout';
 
 export default function EditPlantScreen({ route, navigation }) {
   const bounceAnim = useRef(new Animated.Value(1)).current;
@@ -228,7 +229,7 @@ export default function EditPlantScreen({ route, navigation }) {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [4, 3],
+        aspect: [1, 1],
         quality: 0.8,
       });
 
@@ -381,23 +382,24 @@ export default function EditPlantScreen({ route, navigation }) {
         <Text style={styles.backButtonText}>←</Text>
       </TouchableOpacity>
 
-      <Text style={styles.header}>{plant.name}</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.header}>{plant.name}</Text>
 
-      <Animated.View style={{ transform: [{ translateY: bounceAnim }] }}>
-      <Image
-        key={customImageUri || plant.id}
-        source={customImageUri ? { uri: customImageUri } : getPlantImage(plant.species || plant.genus || plant.type)}
-        style={styles.plantImage}
-      />
-      </Animated.View>
+        <Animated.View style={{ transform: [{ translateY: bounceAnim }] }}>
+        <Image
+          key={customImageUri || plant.id}
+          source={customImageUri ? { uri: customImageUri } : getPlantImage(plant.species || plant.genus || plant.type)}
+          style={styles.plantImage}
+        />
+        </Animated.View>
 
 
-      <TextInput
-        style={styles.input}
-        value={name}
-        onChangeText={setName}
-        placeholder="Plant Name"
-      />
+        <TextInput
+          style={styles.input}
+          value={name}
+          onChangeText={setName}
+          placeholder="Plant Name"
+        />
 
 {plant.wateringLog && plant.wateringLog.length > 0 && (
   <View style={{ marginVertical: 20 }}>
@@ -505,6 +507,7 @@ export default function EditPlantScreen({ route, navigation }) {
   </View>
 </Modal>
 
+      </ScrollView>
     </View>
   );
 }
@@ -514,18 +517,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f0fdf4',
-    padding: 20,
-    justifyContent: 'center',
+  },
+
+  scrollContent: {
+    padding: scale(20),
+    paddingBottom: verticalScale(40),
   },
 
   backButton: {
     position: 'absolute',
-    top: 50,
-    left: 20,
+    top: verticalScale(50),
+    left: scale(20),
     zIndex: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
     backgroundColor: 'rgba(34, 139, 34, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -534,18 +540,18 @@ const styles = StyleSheet.create({
   },
 
   backButtonText: {
-    fontSize: 28,
+    fontSize: moderateScale(28),
     color: '#228B22',
     fontWeight: 'bold',
-    marginTop: -10,
+    marginTop: verticalScale(-10),
   },
 
   plantImage: {
-    width: 120,
-    height: 120,
+    width: scale(120),
+    height: scale(120),
     alignSelf: 'center',
-    borderRadius: 16,
-    marginBottom: 20,
+    borderRadius: scale(16),
+    marginBottom: verticalScale(20),
     resizeMode: 'contain',
     borderWidth: 1,
     borderColor: '#ccc',
@@ -556,60 +562,60 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 5,
   },
-  
+
   header: {
-    fontSize: 28,
+    fontSize: moderateScale(28),
     fontWeight: 'bold',
-    marginBottom: 30,
+    marginBottom: verticalScale(30),
     textAlign: 'center',
     color: '#228B22',
   },
-  
+
   input: {
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 20,
-    fontSize: 16,
+    padding: scale(15),
+    borderRadius: scale(10),
+    marginBottom: verticalScale(20),
+    fontSize: moderateScale(16),
     borderColor: '#ccc',
     borderWidth: 1,
   },
   saveButton: {
     backgroundColor: '#34a853',
-    padding: 15,
-    borderRadius: 50, // makes it round
+    padding: scale(15),
+    borderRadius: scale(50),
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: verticalScale(10),
   },
-  
+
   deleteButton: {
     backgroundColor: '#d9534f',
-    padding: 15,
-    borderRadius: 50,
+    padding: scale(15),
+    borderRadius: scale(50),
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: verticalScale(20),
   },
 
   pixelArtButton: {
     backgroundColor: '#9c27b0',
-    padding: 15,
-    borderRadius: 50,
+    padding: scale(15),
+    borderRadius: scale(50),
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: verticalScale(20),
   },
 
   aiButtonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
-    gap: 10,
+    marginTop: verticalScale(20),
+    gap: scale(10),
   },
 
   aiButton: {
     flex: 1,
     backgroundColor: '#4285f4',
-    padding: 15,
-    borderRadius: 50,
+    padding: scale(15),
+    borderRadius: scale(50),
     alignItems: 'center',
   },
 
@@ -619,63 +625,55 @@ const styles = StyleSheet.create({
   },
 
   loadingContainer: {
-    marginTop: 20,
+    marginTop: verticalScale(20),
     alignItems: 'center',
   },
 
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
+    marginTop: verticalScale(10),
+    fontSize: moderateScale(16),
     color: '#4285f4',
     fontWeight: '600',
   },
 
   buttonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: 'bold',
-  },  
+    textAlign: 'center',
+  },
 
   logHeader: {
     fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 5,
-  },
-  
-  logEntry: {
-    fontSize: 14,
-    color: '#555',
+    fontSize: moderateScale(16),
+    marginBottom: verticalScale(5),
   },
 
-  plantImage: {
-    width: 150,
-    height: 150,
-    alignSelf: 'center',
-    borderRadius: 16,
-    marginBottom: 20,
-    resizeMode: 'contain',
+  logEntry: {
+    fontSize: moderateScale(14),
+    color: '#555',
   },
 
   topAiButtonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
-    gap: 10,
+    marginTop: verticalScale(20),
+    gap: scale(10),
   },
 
   smallAiButton: {
     flex: 1,
     backgroundColor: '#9c27b0',
-    padding: 15,
-    borderRadius: 50,
+    padding: scale(15),
+    borderRadius: scale(50),
     alignItems: 'center',
   },
 
   detectGenusButton: {
     flex: 1,
     backgroundColor: '#bf0000',
-    padding: 15,
-    borderRadius: 50,
+    padding: scale(15),
+    borderRadius: scale(50),
     alignItems: 'center',
   },
 
@@ -688,10 +686,10 @@ const styles = StyleSheet.create({
 
   modalContainer: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 25,
+    borderRadius: scale(20),
+    padding: scale(25),
     width: '85%',
-    maxWidth: 400,
+    maxWidth: scale(400),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -700,27 +698,27 @@ const styles = StyleSheet.create({
   },
 
   modalTitle: {
-    fontSize: 22,
+    fontSize: moderateScale(22),
     fontWeight: 'bold',
     color: '#228B22',
-    marginBottom: 15,
+    marginBottom: verticalScale(15),
     textAlign: 'center',
   },
 
   modalText: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     color: '#333',
-    marginBottom: 20,
+    marginBottom: verticalScale(20),
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: moderateScale(22),
   },
 
   modalButton: {
     backgroundColor: '#34a853',
-    padding: 15,
-    borderRadius: 10,
+    padding: scale(15),
+    borderRadius: scale(10),
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: verticalScale(10),
   },
 
   modalButtonWarning: {

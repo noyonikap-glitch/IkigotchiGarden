@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity } from 'react-native';
 import { getWateringInterval } from '../utils/getWateringInterval';
 import { saveCustomPlants, loadCustomPlants } from '../utils/storage';
+import { scale, verticalScale, moderateScale } from '../utils/layout';
 
 export default function AddPlantScreen({ navigation, plants, setPlants, customPlants, setCustomPlants }) {
   const [name, setName] = useState('');
@@ -86,17 +87,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f0fdf4',
-    paddingTop: 50,
-    paddingHorizontal: 20,
+    paddingTop: verticalScale(50),
+    paddingHorizontal: scale(20),
   },
   backButton: {
     position: 'absolute',
-    top: 50,
-    left: 20,
+    top: verticalScale(50),
+    left: scale(20),
     zIndex: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
     backgroundColor: 'rgba(34, 139, 34, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -104,24 +105,24 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(34, 139, 34, 0.2)',
   },
   backButtonText: {
-    fontSize: 28,
+    fontSize: moderateScale(28),
     color: '#228B22',
     fontWeight: 'bold',
-    marginTop: -10,
+    marginTop: verticalScale(-10),
   },
   header: {
-    fontSize: 28,
+    fontSize: moderateScale(28),
     fontWeight: 'bold',
-    marginBottom: 30,
+    marginBottom: verticalScale(30),
     textAlign: 'center',
     color: '#228B22',
   },
   input: {
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 20,
-    fontSize: 16,
+    padding: scale(15),
+    borderRadius: scale(10),
+    marginBottom: verticalScale(20),
+    fontSize: moderateScale(16),
     borderColor: '#ccc',
     borderWidth: 1,
   },

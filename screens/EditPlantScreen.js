@@ -374,6 +374,13 @@ export default function EditPlantScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}
+      >
+        <Text style={styles.backButtonText}>←</Text>
+      </TouchableOpacity>
+
       <Text style={styles.header}>{plant.name}</Text>
 
       <Animated.View style={{ transform: [{ translateY: bounceAnim }] }}>
@@ -509,6 +516,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0fdf4',
     padding: 20,
     justifyContent: 'center',
+  },
+
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(34, 139, 34, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 139, 34, 0.2)',
+  },
+
+  backButtonText: {
+    fontSize: 28,
+    color: '#228B22',
+    fontWeight: 'bold',
+    marginTop: -10,
   },
 
   plantImage: {

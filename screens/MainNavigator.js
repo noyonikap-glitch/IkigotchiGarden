@@ -9,8 +9,11 @@ const Stack = createNativeStackNavigator();
 
 export default function MainNavigator({ plants, setPlants, customPlants, setCustomPlants }) {
   return (
-    <Stack.Navigator initialRouteName="Home">
-      <Stack.Screen name="Home" options={{ title: '' }}>
+    <Stack.Navigator
+      initialRouteName="Home"
+      screenOptions={{ headerShown: false }}
+    >
+      <Stack.Screen name="Home">
         {(props) => <HomeScreen {...props} plants={plants} setPlants={setPlants} />}
       </Stack.Screen>
       <Stack.Screen name="AddPlant">

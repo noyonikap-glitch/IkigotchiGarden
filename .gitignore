@@ -140,3 +140,4 @@ backend/models/*.onnx
 backend/models/*.pth
 
 plan.txt
+credentials.json

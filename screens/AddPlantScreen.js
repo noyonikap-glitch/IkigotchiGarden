@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity } from 'react-native';
 import { getWateringInterval } from '../utils/getWateringInterval';
 import { saveCustomPlants, loadCustomPlants } from '../utils/storage';
 
@@ -49,6 +49,13 @@ export default function AddPlantScreen({ navigation, plants, setPlants, customPl
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}
+      >
+        <Text style={styles.backButtonText}>←</Text>
+      </TouchableOpacity>
+
       <Text style={styles.header}>Add a New Plant</Text>
 
       <TextInput
@@ -81,6 +88,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0fdf4',
     paddingTop: 50,
     paddingHorizontal: 20,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(34, 139, 34, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 139, 34, 0.2)',
+  },
+  backButtonText: {
+    fontSize: 28,
+    color: '#228B22',
+    fontWeight: 'bold',
+    marginTop: -10,
   },
   header: {
     fontSize: 28,

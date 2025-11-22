@@ -7,19 +7,12 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
-  Alert,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Image } from 'react-native';
 import getPlantImage from '../utils/getPlantImage';
 import { loadPlants } from '../utils/storage';
-import { checkPlantSpecies } from '../utils/geminiService';
-import { classifyPlantWithAI, extractGenus } from '../utils/plantClassificationService';
-import { pickImageFromGallery } from '../utils/imagePicker';
-import LoadingOverlay from '../components/LoadingOverlay';
-
-const screenWidth = Dimensions.get('window').width;
+import { scale, verticalScale, moderateScale, screenWidth } from '../utils/layout';
 
 export default function HomeScreen({ navigation, plants, setPlants }) {
   const [loading, setLoading] = useState(false);
@@ -60,10 +53,12 @@ export default function HomeScreen({ navigation, plants, setPlants }) {
               <Text style={styles.plantName}>{item.name}</Text>
               <Image
                 key={item.customImage || item.id}
-                source={item.customImage ? { uri: item.customImage } : getPlantImage(item.type)}
+                source={item.customImage ? { uri: item.customImage } : getPlantImage(item.species || item.genus || item.type)}
                 style={styles.plantImage}
               />
-              <Text style={styles.plantType}>{item.type}</Text>
+              <Text style={styles.plantType}>
+                {item.species || item.genus || ' '}
+              </Text>
               <Text style={styles.plantWater}>
                 Water: Every {item.wateringInterval}{' '}
                 {item.wateringInterval === 1 ? 'day' : 'days'}
@@ -144,68 +139,68 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f0fdf4',
-    paddingTop: 50,
-    paddingHorizontal: 20,
+    paddingTop: verticalScale(50),
+    paddingHorizontal: scale(20),
   },
   header: {
-    fontSize: 32,
+    fontSize: moderateScale(32),
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: verticalScale(20),
     textAlign: 'center',
     color: '#228B22',
   },
   gridContainer: {
-    paddingBottom: 80,
+    paddingBottom: verticalScale(80),
   },
   columnWrapper: {
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: verticalScale(16),
   },
   plantCard: {
     backgroundColor: '#d4edda',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: scale(12),
+    padding: scale(12),
     width: screenWidth * 0.43,
     alignItems: 'center',
   },
   plantName: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
     textAlign: 'center',
   },
   plantType: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#444',
     textAlign: 'center',
   },
   plantWater: {
-    fontSize: 13,
-    marginTop: 4,
+    fontSize: moderateScale(13),
+    marginTop: verticalScale(4),
     color: '#228B22',
     textAlign: 'center',
   },
   plantImage: {
-    width: 70,
-    height: 70,
+    width: scale(70),
+    height: scale(70),
     resizeMode: 'contain',
-    marginVertical: 8,
+    marginVertical: verticalScale(8),
   },
   addButton: {
     backgroundColor: '#34a853',
-    padding: 15,
-    borderRadius: 50,
+    padding: scale(15),
+    borderRadius: scale(50),
     alignItems: 'center',
     position: 'absolute',
-    bottom: 40,
-    right: 20,
+    bottom: verticalScale(40),
+    right: scale(20),
   },
   disabledButton: {
     backgroundColor: '#a0a0a0',
   },
   addButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: 'bold',
   },
 });

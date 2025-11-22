@@ -17,7 +17,28 @@ export async function loadPlants() {
   try {
     // console.log('[Storage] Loading plants from AsyncStorage');
     const json = await AsyncStorage.getItem(STORAGE_KEY);
-    const plants = json != null ? JSON.parse(json) : [];
+    let plants = json != null ? JSON.parse(json) : [];
+
+    // Migrate old plant data to new schema
+    let needsMigration = false;
+    plants = plants.map(plant => {
+      if (!plant.hasOwnProperty('species') || !plant.hasOwnProperty('genus')) {
+        needsMigration = true;
+        return {
+          ...plant,
+          species: plant.type || null,
+          genus: null,
+        };
+      }
+      return plant;
+    });
+
+    // Save migrated data back to storage
+    if (needsMigration) {
+      console.log('[Storage] Migrating plant data to new schema');
+      await savePlants(plants);
+    }
+
     // console.log('[Storage] Loaded plants:', plants.length);
     return plants;
   } catch (e) {

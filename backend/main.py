@@ -2,15 +2,14 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 # from sqlalchemy.orm import Session
 
-# from app.database import get_db, engine
-# from app.models import Base
-
-# from app.repository.plant_data_repository import PlantDataRepository
-# from app.repository.user_plant_repository import UserPlantRepository
-# from app.service.plant_data_service import PlantDataService
-# from app.service.user_plant_service import UserPlantService
-# from app.controller.plant_data_controller import PlantDataController
-# from app.controller.user_plant_controller import UserPlantController
+# Import layers
+from app.repository.plant_data_repository import PlantDataRepository
+from app.repository.user_plant_repository import UserPlantRepository
+from app.service.plant_data_service import PlantDataService
+from app.service.user_plant_service import UserPlantService
+from app.controller.plant_data_controller import PlantDataController
+from app.controller.user_plant_controller import UserPlantController
+from app.controller.vision_controller import VisionController
 from app.controller.plant_classification_controller import router as classification_router
 from app.service.plant_classification_service import initialize_model
 

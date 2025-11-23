@@ -3,11 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, ScrollView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
+import * as ImagePicker from 'expo-image-picker';
 import getPlantImage from '../utils/getPlantImage';
 import { Image } from 'react-native';
 import { Animated } from 'react-native';
 import { useRef, useCallback } from 'react';
-import { checkPlantSpecies, generatePixelArtImage } from '../utils/geminiService';
+import { checkPlantSpecies, checkPlantHealth, generatePixelArtImage } from '../utils/geminiService';
 import { loadPlants, savePlants } from '../utils/storage';
 import { detectPlantGenus } from '../utils/visionService';
 import { scale, verticalScale, moderateScale } from '../utils/layout';
@@ -47,20 +48,32 @@ export default function EditPlantScreen({ route, navigation }) {
   };
 
   const handleRename = async () => {
-    await updatePlant(plant.id, { name });
-    setIsEditingName(false);
-    await loadPlantData();
+    const plants = await loadPlants();
+    const updated = plants.map(p =>
+      p.id === plant.id ? { ...p, name } : p
+    );
+    await savePlants(updated);
+    navigation.goBack();
   };
 
-  const handleDelete = async () => {
-    setShowDeleteModal(false);
-    try {
-      await deletePlant(plant.id);
-      navigation.goBack();
-    } catch (error) {
-      Alert.alert('Error', 'Failed to delete plant');
-      console.error('Delete error:', error);
-    }
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Plant',
+      `Are you sure you want to delete "${plant.name}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const plants = await loadPlants();
+            const updated = plants.filter(p => p.id !== plant.id);
+            await savePlants(updated);
+            navigation.goBack();
+          }
+        }
+      ]
+    );
   };
 
 
@@ -114,43 +127,103 @@ export default function EditPlantScreen({ route, navigation }) {
     ]).start();
   };
 
-  const handleGeneratePixelArt = async () => {
+  const handleCheckSpecies = async () => {
     try {
-      const sourceImageUri = await pickImageFromGallery();
-      
-      if (!sourceImageUri) return;
+      // Request camera roll permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      setLoading(true);
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
 
-      // Generate pixel art using the selected image
-      const generatedImageUri = await generatePixelArtImage(sourceImageUri);
+      // Pick an image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-      // Update plant with custom image
-      await updatePlant(plant.id, { customImage: generatedImageUri });
+      if (!result.canceled) {
+        setLoading(true);
+        const imageUri = result.assets[0].uri;
 
-      setCustomImageUri(generatedImageUri);
-      setLoading(false);
-      Alert.alert('Success', 'Pixel art image generated successfully!');
+        const species = await checkPlantSpecies(imageUri);
+
+        setLoading(false);
+
+        // Ask user if they want to update the plant type
+        Alert.alert(
+          'Species Identified',
+          species,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Update Plant Type',
+              onPress: async () => {
+                const plants = await loadPlants();
+                const updated = plants.map(p =>
+                  p.id === plant.id ? { ...p, type: species.split('\n')[0].trim() } : p
+                );
+                await savePlants(updated);
+                await loadPlantData();
+                Alert.alert('Success', 'Plant type updated!');
+              }
+            }
+          ]
+        );
+      }
     } catch (error) {
       setLoading(false);
-      Alert.alert('Error', error.message || 'Failed to generate pixel art image');
+      Alert.alert('Error', error.message || 'Failed to check species');
     }
   };
 
-  const handleRetakeImage = async () => {
-    setShowActionModal(false);
+  const handleCheckHealth = async () => {
     try {
-      const imageUri = await pickImageFromGallery();
-      
-      if (!imageUri) return;
+      // Request camera roll permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      setLoading(true);
-      const species = await checkPlantSpecies(imageUri);
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      // Pick an image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setLoading(true);
+        const imageUri = result.assets[0].uri;
+
+        const healthReport = await checkPlantHealth(imageUri);
+
+        setLoading(false);
+
+        // Display health report
+        Alert.alert('Plant Health Report', healthReport, [{ text: 'OK' }]);
+      }
+    } catch (error) {
       setLoading(false);
+      Alert.alert('Error', error.message || 'Failed to check plant health');
+    }
+  };
 
-      // Extract scientific name from the response (assuming it's in parentheses)
-      const newScientificName = species.match(/\(([^)]+)\)/)?.[1] || '';
-      const currentScientificName = plant.type.match(/\(([^)]+)\)/)?.[1] || plant.type;
+  const handleGeneratePixelArt = async () => {
+    try {
+      // Request camera roll permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
 
       // Pick an image
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -175,11 +248,24 @@ export default function EditPlantScreen({ route, navigation }) {
         const updated = plants.map(p =>
           p.id === plant.id ? { ...p, customImage: generatedImageUri } : p
         );
+        // console.log('[EditPlant] Saving updated plants to storage');
+        await savePlants(updated);
+        // console.log('[EditPlant] Plants saved successfully');
+
+        // Verify save
+        const verifyPlants = await loadPlants();
+        const verifyPlant = verifyPlants.find(p => p.id === plant.id);
+        // console.log('[EditPlant] Verification - Plant custom image:', verifyPlant?.customImage);
+
+        setCustomImageUri(generatedImageUri);
+
+        setLoading(false);
+        Alert.alert('Success', 'Pixel art image generated successfully!');
       }
-      // If same species, do nothing for now as requested
     } catch (error) {
       setLoading(false);
-      Alert.alert('Error', error.message || 'Failed to check species');
+      // console.error('[EditPlant] Error generating pixel art:', error);
+      Alert.alert('Error', error.message || 'Failed to generate pixel art image');
     }
   };
 
@@ -431,6 +517,7 @@ export default function EditPlantScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
     backgroundColor: '#f0fdf4',
@@ -486,10 +573,6 @@ const styles = StyleSheet.create({
     marginBottom: verticalScale(30),
     textAlign: 'center',
     color: '#228B22',
-    marginBottom: 30,
-    borderBottomWidth: 2,
-    borderBottomColor: '#228B22',
-    paddingBottom: 5,
   },
 
   input: {
@@ -532,7 +615,7 @@ const styles = StyleSheet.create({
     gap: scale(10),
   },
 
-  modalOverlay: {
+  aiButton: {
     flex: 1,
     backgroundColor: '#4285f4',
     padding: scale(15),
@@ -540,18 +623,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    width: '80%',
-    maxWidth: 300,
+  disabledButton: {
+    backgroundColor: '#ccc',
+    opacity: 0.6,
   },
 
   loadingContainer: {
     marginTop: verticalScale(20),
     alignItems: 'center',
-    marginBottom: 10,
   },
 
   loadingText: {
@@ -568,8 +647,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  deleteModalTitle: {
-    fontSize: 20,
+  logHeader: {
     fontWeight: 'bold',
     fontSize: moderateScale(16),
     marginBottom: verticalScale(5),
@@ -662,4 +740,3 @@ const styles = StyleSheet.create({
   },
 
 });
-

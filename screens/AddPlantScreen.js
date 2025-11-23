@@ -4,7 +4,7 @@ import { getWateringInterval } from '../utils/getWateringInterval';
 import { saveCustomPlants, loadCustomPlants } from '../utils/storage';
 import { scale, verticalScale, moderateScale } from '../utils/layout';
 
-export default function AddPlantScreen({ navigation, route, plants, setPlants, customPlants, setCustomPlants }) {
+export default function AddPlantScreen({ navigation, plants, setPlants, customPlants, setCustomPlants }) {
   const [name, setName] = useState('');
   const [species, setSpecies] = useState('');
   const [genus, setGenus] = useState('');
@@ -15,16 +15,6 @@ export default function AddPlantScreen({ navigation, route, plants, setPlants, c
       setCustomPlants(loaded);
     })();
   }, []);
-
-  // Pre-fill the type field if species was identified
-  useEffect(() => {
-    if (route.params?.identifiedSpecies) {
-      // Extract just the common name (first line before scientific name)
-      const species = route.params.identifiedSpecies;
-      const commonName = species.split('\n')[0].trim();
-      setType(commonName);
-    }
-  }, [route.params]);
 
   const handleAddPlant = () => {
     if (!name.trim()) {
@@ -86,12 +76,6 @@ export default function AddPlantScreen({ navigation, route, plants, setPlants, c
         placeholder="Genus (Optional)"
         value={genus}
         onChangeText={setGenus}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Watering period"
-        value={watering}
-        onChangeText={setWatering}
       />
 
       <Button title="Add Plant" onPress={handleAddPlant} color="#34a853" />

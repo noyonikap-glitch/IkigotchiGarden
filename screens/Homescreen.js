@@ -1,6 +1,6 @@
 // screens/HomeScreen.js
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,8 +15,6 @@ import { loadPlants } from '../utils/storage';
 import { scale, verticalScale, moderateScale, screenWidth } from '../utils/layout';
 
 export default function HomeScreen({ navigation, plants, setPlants }) {
-  const [loading, setLoading] = useState(false);
-
   useFocusEffect(
     React.useCallback(() => {
       // console.log('[HomeScreen] Screen focused, reloading plants from storage');
@@ -68,67 +66,17 @@ export default function HomeScreen({ navigation, plants, setPlants }) {
         )}
       />
 
-      <AddPlantButton loading={loading} setLoading={setLoading} />
-
-      {loading && <LoadingOverlay />}
+      <AddPlantButton />
     </View>
   );
 }
 
-function AddPlantButton({ loading, setLoading }) {
+function AddPlantButton() {
   const navigation = useNavigation();
-
-  const handleAddPlant = async () => {
-    try {
-      const imageUri = await pickImageFromGallery();
-      
-      if (!imageUri) return;
-
-      setLoading(true);
-
-      // Call both Gemini and AI backend in parallel
-      const [geminiSpecies, aiResult] = await Promise.all([
-        checkPlantSpecies(imageUri),
-        classifyPlantWithAI(imageUri)
-      ]);
-
-      // Extract genus from Gemini result
-      const geminiGenus = extractGenus(geminiSpecies);
-      const aiGenus = aiResult?.top_prediction?.genus?.toLowerCase();
-
-      console.log('[HandleAddPlant] Gemini species:', geminiSpecies);
-      console.log('[HandleAddPlant] Gemini genus:', geminiGenus);
-      console.log('[HandleAddPlant] AI genus:', aiGenus);
-      console.log('[HandleAddPlant] AI confidence:', aiResult?.top_prediction?.confidence);
-
-      // Decide which result to use
-      let finalSpecies;
-      if (geminiGenus && aiGenus && geminiGenus === aiGenus) {
-        // Genus matches - use Gemini's more detailed output
-        finalSpecies = geminiSpecies;
-        console.log('[HandleAddPlant] Genus match! Using Gemini result');
-      } else {
-        // Genus doesn't match - use AI model output
-        const aiPrediction = aiResult?.top_prediction;
-        finalSpecies = aiPrediction?.genus || geminiSpecies;
-        console.log('[HandleAddPlant] Genus mismatch or no match. Using AI result:', finalSpecies);
-      }
-
-      setLoading(false);
-
-      // Navigate to AddPlant screen with the species information
-      navigation.navigate('AddPlant', { identifiedSpecies: finalSpecies });
-    } catch (error) {
-      setLoading(false);
-      Alert.alert('Error', error.message || 'Failed to identify plant');
-    }
-  };
-
   return (
     <TouchableOpacity
-      style={[styles.addButton, loading && styles.disabledButton]}
-      onPress={handleAddPlant}
-      disabled={loading}
+      style={styles.addButton}
+      onPress={() => navigation.navigate('AddPlant')}
     >
       <Text style={styles.addButtonText}>+ Add Plant</Text>
     </TouchableOpacity>
@@ -194,9 +142,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: verticalScale(40),
     right: scale(20),
-  },
-  disabledButton: {
-    backgroundColor: '#a0a0a0',
   },
   addButtonText: {
     color: '#fff',

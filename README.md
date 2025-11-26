@@ -33,10 +33,18 @@ cd IkigotchiGarden
 npm install
 ```
 
-### 3. Start the dev server
+## 3. Log in to EAS and build a development version
+```bash
+eas login
+eas build --profile development --platform [android || ios]
+```
+
+### 4. Start the dev server
 ```bash
 npx expo start
 ```
+
+## 5. Install EAS development version and connect to dev server
 
 Scan the QR code with the Expo Go app on your mobile device to launch the app.
 

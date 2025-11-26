@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(28),
     color: '#228B22',
     fontWeight: 'bold',
-    marginTop: verticalScale(-10),
+    marginTop: moderateScale(-10),
   },
   header: {
     fontSize: moderateScale(28),

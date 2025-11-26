@@ -23,6 +23,8 @@ export default function EditPlantScreen({ route, navigation }) {
   const [customImageUri, setCustomImageUri] = useState(null);
   const [showMismatchModal, setShowMismatchModal] = useState(false);
   const [detectedGenus, setDetectedGenus] = useState(null);
+  const [showSpeciesMismatchModal, setShowSpeciesMismatchModal] = useState(false);
+  const [detectedSpecies, setDetectedSpecies] = useState(null);
 
   // Load plant data when screen is focused
   useFocusEffect(
@@ -149,30 +151,26 @@ export default function EditPlantScreen({ route, navigation }) {
         setLoading(true);
         const imageUri = result.assets[0].uri;
 
-        const species = await checkPlantSpecies(imageUri);
+        const speciesResponse = await checkPlantSpecies(imageUri);
+        const species = speciesResponse.split('\n')[0].trim();
 
         setLoading(false);
 
-        // Ask user if they want to update the plant type
-        Alert.alert(
-          'Species Identified',
-          species,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Update Plant Type',
-              onPress: async () => {
-                const plants = await loadPlants();
-                const updated = plants.map(p =>
-                  p.id === plant.id ? { ...p, type: species.split('\n')[0].trim() } : p
-                );
-                await savePlants(updated);
-                await loadPlantData();
-                Alert.alert('Success', 'Plant type updated!');
-              }
-            }
-          ]
-        );
+        // Check for species/genus mismatch
+        if (plant.genus && !species.toLowerCase().includes(plant.genus.toLowerCase())) {
+          // Mismatch detected - show modal
+          setDetectedSpecies(species);
+          setShowSpeciesMismatchModal(true);
+        } else {
+          // No mismatch or genus matches - update species directly
+          const plants = await loadPlants();
+          const updated = plants.map(p =>
+            p.id === plant.id ? { ...p, species } : p
+          );
+          await savePlants(updated);
+          await loadPlantData();
+          Alert.alert('Success', `Species updated to "${species}"`);
+        }
       }
     } catch (error) {
       setLoading(false);
@@ -365,6 +363,35 @@ export default function EditPlantScreen({ route, navigation }) {
     setDetectedGenus(null);
   };
 
+  const handleSpeciesMismatchChoice = async (choice) => {
+    const plants = await loadPlants();
+    let updated;
+
+    switch (choice) {
+      case 'keep_both':
+        // Keep both genus and species
+        updated = plants.map(p =>
+          p.id === plant.id ? { ...p, species: detectedSpecies } : p
+        );
+        break;
+      case 'remove_genus':
+        // Remove genus, keep species
+        updated = plants.map(p =>
+          p.id === plant.id ? { ...p, genus: null, species: detectedSpecies } : p
+        );
+        break;
+      case 'remove_species':
+        // Keep genus, don't update species
+        updated = plants;
+        break;
+    }
+
+    await savePlants(updated);
+    await loadPlantData();
+    setShowSpeciesMismatchModal(false);
+    setDetectedSpecies(null);
+  };
+
   if (!plant) {
     return (
       <View style={styles.container}>
@@ -511,6 +538,45 @@ export default function EditPlantScreen({ route, navigation }) {
   </View>
 </Modal>
 
+<Modal
+  visible={showSpeciesMismatchModal}
+  transparent={true}
+  animationType="fade"
+  onRequestClose={() => setShowSpeciesMismatchModal(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContainer}>
+      <Text style={styles.modalTitle}>Species/Genus Mismatch</Text>
+      <Text style={styles.modalText}>
+        The detected species "{detectedSpecies}" doesn't match your current genus "{plant?.genus}".
+        {'\n\n'}
+        What would you like to do?
+      </Text>
+
+      <TouchableOpacity
+        style={styles.modalButton}
+        onPress={() => handleSpeciesMismatchChoice('keep_both')}
+      >
+        <Text style={styles.modalButtonText}>Keep Both</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.modalButton, styles.modalButtonWarning]}
+        onPress={() => handleSpeciesMismatchChoice('remove_genus')}
+      >
+        <Text style={styles.modalButtonText}>Remove Genus, Keep Species</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.modalButton, styles.modalButtonCancel]}
+        onPress={() => handleSpeciesMismatchChoice('remove_species')}
+      >
+        <Text style={styles.modalButtonText}>Cancel (Keep Genus)</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
       </ScrollView>
     </View>
   );
@@ -547,7 +613,7 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(28),
     color: '#228B22',
     fontWeight: 'bold',
-    marginTop: verticalScale(-10),
+    marginTop: moderateScale(-10),
   },
 
   plantImage: {

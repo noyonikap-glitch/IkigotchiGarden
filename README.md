@@ -13,6 +13,7 @@ A minimalist plant care companion — track watering needs, get reminders, and f
 - 📅 **Watering Reminders** via local notifications
 - 🪴 **Add Your Own Plants** with type-based care suggestions
 - 🎨 **Grid-Based UI** with pixel-plant avatar support
+- 🔎 **Automatic Genus Detection** via a local Vision Transformer
 - 💧 **Mark as Watered** with animated bounce
 - 🧠 **Persistent Storage** using AsyncStorage
 - 🔔 **Offline-First** and works without internet
@@ -79,7 +80,7 @@ FlatList for responsive grids
 ## 📄 License
 MIT License — use, remix, modify, and grow your own garden 🌱
 
-Made with 💚 by @noyonikap-glitch
+Made with 💚 by @noyonikap-glitch, @nf317881, and @segtreebruh
 
 
 

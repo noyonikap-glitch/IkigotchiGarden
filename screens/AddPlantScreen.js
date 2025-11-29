@@ -31,8 +31,14 @@ export default function AddPlantScreen({ navigation, plants, setPlants, customPl
       saveCustomPlants(updatedCustoms);
     }
 
+    // Generate unique ID by finding max existing ID and incrementing
+    const maxId = plants.length === 0
+      ? 0
+      : Math.max(...plants.map(p => parseInt(p.id) || 0));
+    const newId = (maxId + 1).toString();
+
     const newPlant = {
-      id: (plants.length + 1).toString(),
+      id: newId,
       name,
       species: species || null,
       genus: genus || null,

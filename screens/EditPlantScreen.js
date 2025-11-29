@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, ScrollView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
 import getPlantImage from '../utils/getPlantImage';
 import { Image } from 'react-native';
@@ -12,6 +11,7 @@ import { checkPlantSpecies, checkPlantHealth, generatePixelArtImage } from '../u
 import { loadPlants, savePlants } from '../utils/storage';
 import { detectPlantGenus } from '../utils/visionService';
 import { scale, verticalScale, moderateScale } from '../utils/layout';
+import { scheduleNotificationForPlant } from '../utils/notificationScheduler';
 
 export default function EditPlantScreen({ route, navigation }) {
   const bounceAnim = useRef(new Animated.Value(1)).current;
@@ -25,6 +25,7 @@ export default function EditPlantScreen({ route, navigation }) {
   const [detectedGenus, setDetectedGenus] = useState(null);
   const [showSpeciesMismatchModal, setShowSpeciesMismatchModal] = useState(false);
   const [detectedSpecies, setDetectedSpecies] = useState(null);
+  const [wateringIntervalInput, setWateringIntervalInput] = useState('');
 
   // Load plant data when screen is focused
   useFocusEffect(
@@ -44,17 +45,35 @@ export default function EditPlantScreen({ route, navigation }) {
       setPlant(currentPlant);
       setName(currentPlant.name);
       setCustomImageUri(currentPlant.customImage || null);
+      setWateringIntervalInput(currentPlant.wateringInterval ? currentPlant.wateringInterval.toString() : '');
     } else {
       // console.log('[EditPlant] Plant not found with ID:', plantId);
     }
   };
 
   const handleRename = async () => {
+    // Parse watering interval input
+    // Special test value: "test" = 1 minute for testing notifications
+    let wateringInterval;
+    if (wateringIntervalInput.toLowerCase() === 'test') {
+      wateringInterval = 1 / (24 * 60); // 1 minute in days
+    } else {
+      const parsedInterval = parseInt(wateringIntervalInput);
+      wateringInterval = parsedInterval > 0 ? parsedInterval : 7;
+    }
+
     const plants = await loadPlants();
     const updated = plants.map(p =>
-      p.id === plant.id ? { ...p, name } : p
+      p.id === plant.id ? { ...p, name, wateringInterval } : p
     );
     await savePlants(updated);
+
+    // Reschedule notification with new interval
+    const updatedPlant = updated.find(p => p.id === plant.id);
+    if (updatedPlant) {
+      await scheduleNotificationForPlant(updatedPlant);
+    }
+
     navigation.goBack();
   };
 
@@ -81,39 +100,33 @@ export default function EditPlantScreen({ route, navigation }) {
 
   const handleMarkWatered = async () => {
     const now = new Date();
-    const intervalDays = plant.wateringInterval || 7;
 
-    // 1. Cancel previous notification (if exists)
-    if (plant.notifId) {
-      await Notifications.cancelScheduledNotificationAsync(plant.notifId);
-    }
-
-    // 2. Schedule new one
-    const nextWateringDate = new Date(now);
-    nextWateringDate.setDate(now.getDate() + intervalDays);
-
-    const notifId = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: `Water ${plant.name} 🌿`,
-        body: `${plant.species || plant.genus || 'Your plant'} is due for watering today.`,
-      },
-      trigger: nextWateringDate,
-    });
-
-    // 3. Update plant log + notifId
+    // 1. Update plant log first
     const plants = await loadPlants();
     const updated = plants.map(p => {
       if (p.id === plant.id) {
         const log = p.wateringLog ? [...p.wateringLog, now.toISOString()] : [now.toISOString()];
-        return { ...p, wateringLog: log, notifId };
+        return { ...p, wateringLog: log, lastWatered: now.toISOString() };
       }
       return p;
     });
 
     await savePlants(updated);
+
+    // 2. Schedule new notification using utility
+    const updatedPlant = updated.find(p => p.id === plant.id);
+    const notifId = await scheduleNotificationForPlant(updatedPlant);
+
+    // 3. Save notification ID
+    const plantsWithNotifId = await loadPlants();
+    const finalUpdated = plantsWithNotifId.map(p =>
+      p.id === plant.id ? { ...p, notifId } : p
+    );
+    await savePlants(finalUpdated);
+
     await loadPlantData(); // Reload to show updated data
 
-    //4. Animation sequence
+    // 4. Animation sequence
     Animated.sequence([
       Animated.timing(bounceAnim, {
         toValue: -40,
@@ -430,6 +443,14 @@ export default function EditPlantScreen({ route, navigation }) {
           value={name}
           onChangeText={setName}
           placeholder="Plant Name"
+        />
+
+        <TextInput
+          style={styles.input}
+          value={wateringIntervalInput}
+          onChangeText={setWateringIntervalInput}
+          placeholder="Watering Interval (Days)"
+          keyboardType="numeric"
         />
 
 {plant.wateringLog && plant.wateringLog.length > 0 && (

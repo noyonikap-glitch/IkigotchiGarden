@@ -443,6 +443,7 @@ export default function EditPlantScreen({ route, navigation }) {
           value={name}
           onChangeText={setName}
           placeholder="Plant Name"
+          placeholderTextColor="#666"
         />
 
         <TextInput
@@ -450,6 +451,7 @@ export default function EditPlantScreen({ route, navigation }) {
           value={wateringIntervalInput}
           onChangeText={setWateringIntervalInput}
           placeholder="Watering Interval (Days)"
+          placeholderTextColor="#666"
           keyboardType="numeric"
         />
 

@@ -84,12 +84,14 @@ export default function AddPlantScreen({ navigation, plants, setPlants, customPl
       <TextInput
         style={styles.input}
         placeholder="Plant Name (Required)"
+        placeholderTextColor="#666"
         value={name}
         onChangeText={setName}
       />
       <TextInput
         style={styles.input}
         placeholder="Watering Interval (Days) - Optional"
+        placeholderTextColor="#666"
         value={wateringIntervalInput}
         onChangeText={setWateringIntervalInput}
         keyboardType="numeric"
@@ -97,12 +99,14 @@ export default function AddPlantScreen({ navigation, plants, setPlants, customPl
       <TextInput
         style={styles.input}
         placeholder="Species (Optional)"
+        placeholderTextColor="#666"
         value={species}
         onChangeText={setSpecies}
       />
       <TextInput
         style={styles.input}
         placeholder="Genus (Optional)"
+        placeholderTextColor="#666"
         value={genus}
         onChangeText={setGenus}
       />

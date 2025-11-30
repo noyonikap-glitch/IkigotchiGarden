@@ -33,32 +33,26 @@ cd IkigotchiGarden
 npm install
 ```
 
-## 3. Log in to EAS and build a development version
-```bash
-eas login
-eas build --profile development --platform [android || ios]
+## 3. Create .env file with Gemini API key
+```
+GEMINI_API_KEY = your_api_key
 ```
 
-### 4. Start the dev server
+## 4. Log in to EAS and build a development version
+```bash
+eas login
+eas build --profile development --platform android
+```
+
+### 5. Start the dev server
 ```bash
 npx expo start
 ```
 
-## 5. Install EAS development version and connect to dev server
+## 6. Install EAS development version and connect to dev server
 
 Scan the QR code with the Expo Go app on your mobile device to launch the app.
 
-## ⚠️ Known Limitations
-
-🔕 Expo Go no longer supports remote push notifications as of SDK 53
-
-✅ All local notifications (watering reminders) still work as intended
-
-🔧 If notifications don't work as expected, try:
-
-```bash
-npx expo run:android
-```
 
 ## 🧩 Tech Stack
 

@@ -3,11 +3,13 @@ import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity } from 'rea
 import { getWateringInterval } from '../utils/getWateringInterval';
 import { saveCustomPlants, loadCustomPlants } from '../utils/storage';
 import { scale, verticalScale, moderateScale } from '../utils/layout';
+import { scheduleNotificationForPlant } from '../utils/notificationScheduler';
 
 export default function AddPlantScreen({ navigation, plants, setPlants, customPlants, setCustomPlants }) {
   const [name, setName] = useState('');
   const [species, setSpecies] = useState('');
   const [genus, setGenus] = useState('');
+  const [wateringIntervalInput, setWateringIntervalInput] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -16,13 +18,23 @@ export default function AddPlantScreen({ navigation, plants, setPlants, customPl
     })();
   }, []);
 
-  const handleAddPlant = () => {
+  const handleAddPlant = async () => {
     if (!name.trim()) {
       alert('Please enter a plant name');
       return;
     }
 
-    const interval = getWateringInterval(species, customPlants);
+    // Parse watering interval input
+    // Special test value: "test" = 1 minute for testing notifications
+    let interval;
+    if (wateringIntervalInput.toLowerCase() === 'test') {
+      interval = 1 / (24 * 60); // 1 minute in days
+    } else {
+      const parsedInterval = parseInt(wateringIntervalInput);
+      const customInterval = parsedInterval > 0 ? parsedInterval : null;
+      // Use custom interval if provided, otherwise use default logic
+      interval = customInterval || getWateringInterval(species, customPlants);
+    }
 
     let updatedCustoms = [...customPlants];
     if (species && !customPlants.some(p => p.name.toLowerCase() === species.toLowerCase())) {
@@ -31,8 +43,14 @@ export default function AddPlantScreen({ navigation, plants, setPlants, customPl
       saveCustomPlants(updatedCustoms);
     }
 
+    // Generate unique ID by finding max existing ID and incrementing
+    const maxId = plants.length === 0
+      ? 0
+      : Math.max(...plants.map(p => parseInt(p.id) || 0));
+    const newId = (maxId + 1).toString();
+
     const newPlant = {
-      id: (plants.length + 1).toString(),
+      id: newId,
       name,
       species: species || null,
       genus: genus || null,
@@ -40,6 +58,10 @@ export default function AddPlantScreen({ navigation, plants, setPlants, customPl
       wateringInterval: interval,
       lastWatered: new Date().toISOString(),
     };
+
+    // Schedule notification for new plant
+    const notifId = await scheduleNotificationForPlant(newPlant);
+    newPlant.notifId = notifId;
 
     setPlants([...plants, newPlant]);
 
@@ -62,18 +84,29 @@ export default function AddPlantScreen({ navigation, plants, setPlants, customPl
       <TextInput
         style={styles.input}
         placeholder="Plant Name (Required)"
+        placeholderTextColor="#666"
         value={name}
         onChangeText={setName}
       />
       <TextInput
         style={styles.input}
+        placeholder="Watering Interval (Days) - Optional"
+        placeholderTextColor="#666"
+        value={wateringIntervalInput}
+        onChangeText={setWateringIntervalInput}
+        keyboardType="numeric"
+      />
+      <TextInput
+        style={styles.input}
         placeholder="Species (Optional)"
+        placeholderTextColor="#666"
         value={species}
         onChangeText={setSpecies}
       />
       <TextInput
         style={styles.input}
         placeholder="Genus (Optional)"
+        placeholderTextColor="#666"
         value={genus}
         onChangeText={setGenus}
       />
@@ -108,7 +141,7 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(28),
     color: '#228B22',
     fontWeight: 'bold',
-    marginTop: verticalScale(-10),
+    marginTop: moderateScale(-10),
   },
   header: {
     fontSize: moderateScale(28),

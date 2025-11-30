@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, ScrollView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
 import getPlantImage from '../utils/getPlantImage';
 import { Image } from 'react-native';
@@ -12,6 +11,7 @@ import { checkPlantSpecies, checkPlantHealth, generatePixelArtImage } from '../u
 import { loadPlants, savePlants } from '../utils/storage';
 import { detectPlantGenus } from '../utils/visionService';
 import { scale, verticalScale, moderateScale } from '../utils/layout';
+import { scheduleNotificationForPlant } from '../utils/notificationScheduler';
 
 export default function EditPlantScreen({ route, navigation }) {
   const bounceAnim = useRef(new Animated.Value(1)).current;
@@ -23,6 +23,9 @@ export default function EditPlantScreen({ route, navigation }) {
   const [customImageUri, setCustomImageUri] = useState(null);
   const [showMismatchModal, setShowMismatchModal] = useState(false);
   const [detectedGenus, setDetectedGenus] = useState(null);
+  const [showSpeciesMismatchModal, setShowSpeciesMismatchModal] = useState(false);
+  const [detectedSpecies, setDetectedSpecies] = useState(null);
+  const [wateringIntervalInput, setWateringIntervalInput] = useState('');
 
   // Load plant data when screen is focused
   useFocusEffect(
@@ -42,17 +45,35 @@ export default function EditPlantScreen({ route, navigation }) {
       setPlant(currentPlant);
       setName(currentPlant.name);
       setCustomImageUri(currentPlant.customImage || null);
+      setWateringIntervalInput(currentPlant.wateringInterval ? currentPlant.wateringInterval.toString() : '');
     } else {
       // console.log('[EditPlant] Plant not found with ID:', plantId);
     }
   };
 
   const handleRename = async () => {
+    // Parse watering interval input
+    // Special test value: "test" = 1 minute for testing notifications
+    let wateringInterval;
+    if (wateringIntervalInput.toLowerCase() === 'test') {
+      wateringInterval = 1 / (24 * 60); // 1 minute in days
+    } else {
+      const parsedInterval = parseInt(wateringIntervalInput);
+      wateringInterval = parsedInterval > 0 ? parsedInterval : 7;
+    }
+
     const plants = await loadPlants();
     const updated = plants.map(p =>
-      p.id === plant.id ? { ...p, name } : p
+      p.id === plant.id ? { ...p, name, wateringInterval } : p
     );
     await savePlants(updated);
+
+    // Reschedule notification with new interval
+    const updatedPlant = updated.find(p => p.id === plant.id);
+    if (updatedPlant) {
+      await scheduleNotificationForPlant(updatedPlant);
+    }
+
     navigation.goBack();
   };
 
@@ -79,39 +100,33 @@ export default function EditPlantScreen({ route, navigation }) {
 
   const handleMarkWatered = async () => {
     const now = new Date();
-    const intervalDays = plant.wateringInterval || 7;
 
-    // 1. Cancel previous notification (if exists)
-    if (plant.notifId) {
-      await Notifications.cancelScheduledNotificationAsync(plant.notifId);
-    }
-
-    // 2. Schedule new one
-    const nextWateringDate = new Date(now);
-    nextWateringDate.setDate(now.getDate() + intervalDays);
-
-    const notifId = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: `Water ${plant.name} 🌿`,
-        body: `${plant.species || plant.genus || 'Your plant'} is due for watering today.`,
-      },
-      trigger: nextWateringDate,
-    });
-
-    // 3. Update plant log + notifId
+    // 1. Update plant log first
     const plants = await loadPlants();
     const updated = plants.map(p => {
       if (p.id === plant.id) {
         const log = p.wateringLog ? [...p.wateringLog, now.toISOString()] : [now.toISOString()];
-        return { ...p, wateringLog: log, notifId };
+        return { ...p, wateringLog: log, lastWatered: now.toISOString() };
       }
       return p;
     });
 
     await savePlants(updated);
+
+    // 2. Schedule new notification using utility
+    const updatedPlant = updated.find(p => p.id === plant.id);
+    const notifId = await scheduleNotificationForPlant(updatedPlant);
+
+    // 3. Save notification ID
+    const plantsWithNotifId = await loadPlants();
+    const finalUpdated = plantsWithNotifId.map(p =>
+      p.id === plant.id ? { ...p, notifId } : p
+    );
+    await savePlants(finalUpdated);
+
     await loadPlantData(); // Reload to show updated data
 
-    //4. Animation sequence
+    // 4. Animation sequence
     Animated.sequence([
       Animated.timing(bounceAnim, {
         toValue: -40,
@@ -149,30 +164,26 @@ export default function EditPlantScreen({ route, navigation }) {
         setLoading(true);
         const imageUri = result.assets[0].uri;
 
-        const species = await checkPlantSpecies(imageUri);
+        const speciesResponse = await checkPlantSpecies(imageUri);
+        const species = speciesResponse.split('\n')[0].trim();
 
         setLoading(false);
 
-        // Ask user if they want to update the plant type
-        Alert.alert(
-          'Species Identified',
-          species,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Update Plant Type',
-              onPress: async () => {
-                const plants = await loadPlants();
-                const updated = plants.map(p =>
-                  p.id === plant.id ? { ...p, type: species.split('\n')[0].trim() } : p
-                );
-                await savePlants(updated);
-                await loadPlantData();
-                Alert.alert('Success', 'Plant type updated!');
-              }
-            }
-          ]
-        );
+        // Check for species/genus mismatch
+        if (plant.genus && !species.toLowerCase().includes(plant.genus.toLowerCase())) {
+          // Mismatch detected - show modal
+          setDetectedSpecies(species);
+          setShowSpeciesMismatchModal(true);
+        } else {
+          // No mismatch or genus matches - update species directly
+          const plants = await loadPlants();
+          const updated = plants.map(p =>
+            p.id === plant.id ? { ...p, species } : p
+          );
+          await savePlants(updated);
+          await loadPlantData();
+          Alert.alert('Success', `Species updated to "${species}"`);
+        }
       }
     } catch (error) {
       setLoading(false);
@@ -365,6 +376,35 @@ export default function EditPlantScreen({ route, navigation }) {
     setDetectedGenus(null);
   };
 
+  const handleSpeciesMismatchChoice = async (choice) => {
+    const plants = await loadPlants();
+    let updated;
+
+    switch (choice) {
+      case 'keep_both':
+        // Keep both genus and species
+        updated = plants.map(p =>
+          p.id === plant.id ? { ...p, species: detectedSpecies } : p
+        );
+        break;
+      case 'remove_genus':
+        // Remove genus, keep species
+        updated = plants.map(p =>
+          p.id === plant.id ? { ...p, genus: null, species: detectedSpecies } : p
+        );
+        break;
+      case 'remove_species':
+        // Keep genus, don't update species
+        updated = plants;
+        break;
+    }
+
+    await savePlants(updated);
+    await loadPlantData();
+    setShowSpeciesMismatchModal(false);
+    setDetectedSpecies(null);
+  };
+
   if (!plant) {
     return (
       <View style={styles.container}>
@@ -403,6 +443,16 @@ export default function EditPlantScreen({ route, navigation }) {
           value={name}
           onChangeText={setName}
           placeholder="Plant Name"
+          placeholderTextColor="#666"
+        />
+
+        <TextInput
+          style={styles.input}
+          value={wateringIntervalInput}
+          onChangeText={setWateringIntervalInput}
+          placeholder="Watering Interval (Days)"
+          placeholderTextColor="#666"
+          keyboardType="numeric"
         />
 
 {plant.wateringLog && plant.wateringLog.length > 0 && (
@@ -511,6 +561,45 @@ export default function EditPlantScreen({ route, navigation }) {
   </View>
 </Modal>
 
+<Modal
+  visible={showSpeciesMismatchModal}
+  transparent={true}
+  animationType="fade"
+  onRequestClose={() => setShowSpeciesMismatchModal(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContainer}>
+      <Text style={styles.modalTitle}>Species/Genus Mismatch</Text>
+      <Text style={styles.modalText}>
+        The detected species "{detectedSpecies}" doesn't match your current genus "{plant?.genus}".
+        {'\n\n'}
+        What would you like to do?
+      </Text>
+
+      <TouchableOpacity
+        style={styles.modalButton}
+        onPress={() => handleSpeciesMismatchChoice('keep_both')}
+      >
+        <Text style={styles.modalButtonText}>Keep Both</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.modalButton, styles.modalButtonWarning]}
+        onPress={() => handleSpeciesMismatchChoice('remove_genus')}
+      >
+        <Text style={styles.modalButtonText}>Remove Genus, Keep Species</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.modalButton, styles.modalButtonCancel]}
+        onPress={() => handleSpeciesMismatchChoice('remove_species')}
+      >
+        <Text style={styles.modalButtonText}>Cancel (Keep Genus)</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
       </ScrollView>
     </View>
   );
@@ -547,7 +636,7 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(28),
     color: '#228B22',
     fontWeight: 'bold',
-    marginTop: verticalScale(-10),
+    marginTop: moderateScale(-10),
   },
 
   plantImage: {

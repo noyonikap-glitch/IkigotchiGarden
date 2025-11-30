@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 
 import MainNavigator from './screens/MainNavigator';
 import { loadPlants, savePlants, loadCustomPlants, saveCustomPlants } from './utils/storage';
 import { configureNotificationHandler } from './utils/notifications';
+import { scheduleAllNotifications } from './utils/notificationScheduler';
 
 configureNotificationHandler();
 
 export default function App() {
+  const navigationRef = useNavigationContainerRef();
   const [plants, setPlants] = useState([]);
   const [customPlants, setCustomPlants] = useState([]);
 
@@ -48,8 +50,26 @@ export default function App() {
     })();
   }, []);
 
+  // Schedule all notifications on app launch
+  useEffect(() => {
+    if (plants.length > 0) {
+      scheduleAllNotifications(plants);
+    }
+  }, [plants.length]);
+
+  // Handle notification tap - navigate to plant
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const plantId = response.notification.request.content.data?.plantId;
+      if (plantId && navigationRef.isReady()) {
+        navigationRef.navigate('EditPlant', { plantId });
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <MainNavigator
         plants={plants}
         setPlants={setPlants}

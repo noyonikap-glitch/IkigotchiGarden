@@ -6,6 +6,6 @@ export default function getPlantImage(type) {
     if (lower.includes('fiddle')) return require('../assets/fiddleleaf.png');
     if (lower.includes('pothos')) return require('../assets/pothos.png');
     if (lower.includes('peace')) return require('../assets/peace-lily.png');
-    return require('../assets/favicon.png'); // fallback image
+    return require('../assets/app_icon.png'); // fallback image
   }
   

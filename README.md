@@ -33,9 +33,44 @@ cd IkigotchiGarden
 npm install
 ```
 
-## 3. Create .env file with Gemini API key
+## 3.1 Create .env file with Gemini API key
 ```
 GEMINI_API_KEY = your_api_key
+```
+
+## 3.2 (For preview builds) Add API key to eas.json
+```
+{
+  "cli": {
+    "version": ">= 16.27.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "GEMINI_API_KEY": "Your API Key"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "GEMINI_API_KEY": "Your API Key"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "GEMINI_API_KEY": "Your API Key"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
+
 ```
 
 ## 4. Log in to EAS and build a development version

@@ -141,3 +141,4 @@ backend/models/*.pth
 
 plan.txt
 credentials.json
+eas.json

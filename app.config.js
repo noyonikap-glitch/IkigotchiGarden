@@ -1,0 +1,40 @@
+module.exports = {
+  expo: {
+    name: "Ikigotchi",
+    slug: "Ikigotchi",
+    owner: "ikigotchigarden",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/app_icon.png",
+    userInterfaceStyle: "light",
+    newArchEnabled: true,
+    splash: {
+      image: "./assets/splash-icon.png",
+      resizeMode: "contain",
+      backgroundColor: "#ffffff"
+    },
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: "com.nf317881.Ikigotchi"
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/app_icon.png",
+        backgroundColor: "#ffffff"
+      },
+      package: "com.nf317881.Ikigotchi"
+    },
+    web: {
+      favicon: "./assets/favicon.png"
+    },
+    plugins: [
+      "expo-asset"
+    ],
+    extra: {
+      eas: {
+        projectId: "68c816f0-3084-4ea6-9724-5c9bbe0a3b6f"
+      },
+      geminiApiKey: process.env.GEMINI_API_KEY
+    }
+  }
+};

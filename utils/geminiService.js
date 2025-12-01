@@ -1,10 +1,15 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import * as FileSystem from 'expo-file-system';
-import { GEMINI_API_KEY } from '@env';
+import Constants from 'expo-constants';
 
-const API_KEY = GEMINI_API_KEY;
+// Get API key from expo-constants (works in both dev and production)
+const API_KEY = Constants.expoConfig?.extra?.geminiApiKey;
 
-const genAI = new GoogleGenerativeAI(API_KEY);
+if (!API_KEY) {
+  console.error('[Gemini] GEMINI_API_KEY is not configured. Check app.config.js and EAS secrets.');
+}
+
+const genAI = new GoogleGenerativeAI(API_KEY || '');
 
 /**
  * Converts image URI to base64 format for Gemini API
@@ -30,8 +35,6 @@ async function uriToBase64(uri) {
  */
 export async function checkPlantSpecies(imageUri) {
   try {
-
-    console.log(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
     const base64Image = await uriToBase64(imageUri);

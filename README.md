@@ -33,12 +33,12 @@ cd IkigotchiGarden
 npm install
 ```
 
-## 3.1 Create .env file with Gemini API key
+### 3.1 Create .env file with Gemini API key
 ```
 GEMINI_API_KEY = your_api_key
 ```
 
-## 3.2 (For preview builds) Add API key to eas.json
+### 3.2 (For preview builds) Add API key to eas.json
 ```
 {
   "cli": {

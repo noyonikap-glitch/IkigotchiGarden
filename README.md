@@ -114,6 +114,13 @@ FlatList for responsive grids
 
 👯 Share plant collections with friends
 
+
+## Vision Development Repo
+
+Includes information on how the vision model was trained and testing data.
+https://github.com/nf317881/IkigotchiVision
+
+
 ## 📄 License
 MIT License — use, remix, modify, and grow your own garden 🌱
 

@@ -240,10 +240,10 @@ function softmax(logits) {
  * Detect plant genus from an image using the Vision Transformer model.
  *
  * @param {string} imageUri - URI of the image to analyze
- * @param {number} confidenceThreshold - Minimum confidence (default: 0.4)
+ * @param {number} confidenceThreshold - Minimum confidence (default: 0.7)
  * @returns {Promise<string|null>} - Returns genus name if detected with sufficient confidence, otherwise null
  */
-export async function detectPlantGenus(imageUri, confidenceThreshold = 0.4) {
+export async function detectPlantGenus(imageUri, confidenceThreshold = 0.7) {
   try {
     console.log('[VisionService] Starting genus detection...');
 
